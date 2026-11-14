@@ -25,6 +25,27 @@
     musicPicked: (name) => `🎵 Ta musique : ${name}`,
     musicBack: '🎵 Retour à la musique générée',
     musicError: (name) => `🎵 Impossible de lire ${name || 'ta musique'} : retour à la musique générée.`,
+    // « Aller à cette session » (brings the real Claude Code session to the front, through the macOS app).
+    goToSession: '⚔️ Aller à cette session',
+    goToSessionShort: '⚔️ Session',
+    goToSessionTitle: 'Met au premier plan la vraie session Claude Code (onglet du Terminal, app Claude, éditeur)',
+    goingTo: (name) => `⚔️ En route vers ${name}…`,
+    hintTitle: 'Retourner à cette session',
+    hintBrowser: "Dans un navigateur, la carte ne peut pas ouvrir la session elle-même. Pour y retourner :",
+    hintResume: 'Dans un terminal :',
+    hintDesktop: "Ouvre l'app Claude : la session est dans sa liste de sessions Claude Code.",
+    hintNoId: "Identifiant de session inconnu : retrouve-la avec « claude --resume » dans son dossier.",
+    hintApp: "Astuce : l'app macOS Terre du Milieu sait ouvrir la session directement.",
+    copy: 'Copier',
+    copied: 'Copié !',
+    copyFailed: 'Copie impossible : sélectionne la commande à la main.',
+    originRow: 'Origine',
+    originDesktop: '🖥️ App Claude (bureau)',
+    originTerminal: '⌨️ Terminal',
+    originITerm: '⌨️ iTerm2',
+    originVSCode: '🧩 VS Code',
+    originCursor: '🧩 Cursor',
+    originOther: (name) => `⌨️ ${name}`,
   };
 
   const { Scene, STATUS, roleAvatar, modelInfo } = window.LOTRScene;
@@ -114,6 +135,86 @@
   }
   function label(a) {
     return a.kind === 'subagent' ? `${a.project} · ${a.subagentType}` : a.project;
+  }
+
+  // ------------------------------------------------------------ « aller à cette session »
+
+  // The app only acts on the agent id: it reads the origin from its own state, never from the page.
+  const NATIVE_FOCUS = () => NATIVE && window.LOTRNative.focusSession === true;
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  /** The session an agent belongs to (a subagent goes to its parent session). */
+  function sessionOf(a) {
+    if (!a || a.kind !== 'subagent') return a;
+    return state.agents.get(a.sessionId) || a;
+  }
+
+  function originLabel(o) {
+    if (!o) return '';
+    if (o.entrypoint === 'claude-desktop') return STR.originDesktop;
+    if (o.termProgram === 'Apple_Terminal') return STR.originTerminal;
+    if (o.termProgram === 'iTerm.app') return STR.originITerm;
+    if (o.termProgram === 'vscode') return /todesktop|cursor/i.test(o.bundleId || '') ? STR.originCursor : STR.originVSCode;
+    if (o.termProgram) return STR.originOther(o.termProgram);
+    return o.entrypoint ? STR.originOther(o.entrypoint) : '';
+  }
+
+  function goToSession(agent) {
+    const s = sessionOf(agent);
+    if (!s) return;
+    if (NATIVE_FOCUS()) {
+      sendNative({ type: 'focusSession', agentId: s.id });
+      flash(STR.goingTo(label(s)), '');
+      return;
+    }
+    showSessionHint(s);
+  }
+
+  function shQuote(v) {
+    return `'${String(v).replace(/'/g, `'\\''`)}'`;
+  }
+
+  let hintBox = null;
+  function showSessionHint(s) {
+    if (!hintBox) {
+      hintBox = el('div', 'session-hint panel');
+      hintBox.setAttribute('role', 'dialog');
+      hintBox.setAttribute('aria-label', STR.hintTitle);
+      document.body.append(hintBox);
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') hintBox.hidden = true;
+      });
+    }
+    const head = el('div', 'sp-head');
+    const x = el('button', 'btn small ghost', '×');
+    x.type = 'button';
+    x.title = STR.close;
+    x.onclick = () => (hintBox.hidden = true);
+    head.append(el('b', null, STR.hintTitle), x);
+    const parts = [head, el('p', null, STR.hintBrowser)];
+    const o = s.origin || {};
+    if (o.entrypoint === 'claude-desktop') {
+      parts.push(el('p', null, STR.hintDesktop));
+    } else if (UUID_RE.test(s.id)) {
+      const cmd = (s.cwd ? `cd ${shQuote(s.cwd)} && ` : '') + `claude --resume ${s.id}`;
+      const code = el('code', 'hint-cmd', cmd);
+      const copy = el('button', 'btn small', STR.copy);
+      copy.type = 'button';
+      copy.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(cmd);
+          copy.textContent = STR.copied;
+        } catch {
+          copy.textContent = STR.copyFailed;
+        }
+      };
+      parts.push(el('p', null, STR.hintResume), code, copy);
+    } else {
+      parts.push(el('p', 'muted', STR.hintNoId));
+    }
+    parts.push(el('p', 'sp-hint', STR.hintApp));
+    hintBox.replaceChildren(...parts);
+    hintBox.hidden = false;
   }
   const dec = (n, d) => n.toFixed(d).replace('.', ',');
   /** 950 · 1,2 k · 3,4 M · 1,1 G */
@@ -438,13 +539,17 @@
         txt.append(title, el('div', 'toast-msg', (a.waiting && a.waiting.message) || 'Les feux d\'alarme sont allumés !'), el('div', 'toast-meta'));
         const see = el('button', 'btn small', 'Voir');
         see.onclick = () => openDetail({ type: 'agent', id: a.id });
+        const go = el('button', 'btn small', STR.goToSessionShort);
+        go.title = STR.goToSessionTitle;
+        go.onclick = () => goToSession(state.agents.get(a.id) || a);
         const x = el('button', 'btn small ghost', '×');
         x.title = 'Masquer cette alerte';
         x.onclick = () => {
           state.dismissed.add(key);
           renderAlerts();
         };
-        t.append(beacon, txt, see, x);
+        if (a.demo) t.append(beacon, txt, see, x);
+        else t.append(beacon, txt, see, go, x);
         toastNodes.set(key, t);
         box.append(t);
       }
@@ -684,8 +789,10 @@
     const ctr = el('div', 'counters');
     for (const [k, n] of counters) ctr.append(el('span', 'ctr', `${k.replace(/^mcp__/, '🔮')} ×${n}`));
 
+    const sess = sessionOf(a);
     const rows = [
       ['Statut', badge],
+      [STR.originRow, originLabel(sess && sess.origin)],
       a.waiting ? ['En attente', `${a.waiting.message} (depuis ${since(a.waiting.since)})`, 'warn'] : null,
       ['Dossier', a.cwd, 'mono'],
       a.kind === 'session' ? ['Dernier prompt', a.lastPrompt ? `« ${a.lastPrompt} »` : '—'] : null,
@@ -696,7 +803,11 @@
       ['Outils', counters.length ? ctr : 'Aucun pour l\'instant'],
       ['Arrivée', fmtTime(a.startedAt)],
     ].filter(Boolean);
-    const parts = [dl(rows)];
+    const go = el('button', 'btn small go-session', STR.goToSession);
+    go.type = 'button';
+    go.title = STR.goToSessionTitle;
+    go.onclick = () => goToSession(state.agents.get(a.id) || a);
+    const parts = a.demo ? [dl(rows)] : [go, dl(rows)];
     const usage = usageRows(a);
     if (usage.length) parts.push(el('h3', null, 'Provisions (usage)'), dl(usage));
 

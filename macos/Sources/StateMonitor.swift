@@ -4,19 +4,27 @@ import Foundation
 struct AgentInfo {
     let id: String
     let kind: String
+    /// Id of the session this agent belongs to (itself for a session).
+    let sessionId: String
     let project: String
+    let cwd: String
     let status: String
     let waitingMessage: String?
     let waitingSince: Double
     let demo: Bool
+    /// Where the session runs (sessions only), validated again here: see SessionOrigin.
+    let origin: SessionOrigin?
 
     init?(_ d: [String: Any]) {
         guard let id = d["id"] as? String else { return nil }
         self.id = id
         kind = d["kind"] as? String ?? "session"
+        sessionId = d["sessionId"] as? String ?? id
         project = d["project"] as? String ?? ""
+        cwd = d["cwd"] as? String ?? ""
         status = d["status"] as? String ?? "idle"
         demo = d["demo"] as? Bool ?? false
+        origin = SessionOrigin(d["origin"])
         if let w = d["waiting"] as? [String: Any] {
             waitingMessage = w["message"] as? String ?? ""
             waitingSince = (w["since"] as? NSNumber)?.doubleValue ?? 0

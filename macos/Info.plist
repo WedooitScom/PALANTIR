@@ -36,6 +36,8 @@
 	<false/>
 	<key>NSHumanReadableCopyright</key>
 	<string>MIT — dessiné en code, sans dépendance.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Terre du Milieu pilote le Terminal ou iTerm2 uniquement quand tu cliques sur « Aller à cette session » : pour mettre au premier plan l'onglet de cette session Claude Code, ou pour la reprendre (claude --resume).</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

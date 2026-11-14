@@ -2,9 +2,12 @@ import AppKit
 import UserNotifications
 
 /// macOS notifications: an agent waiting for an answer, the 5 h limit running low, and a test
-/// notification (📣 button of the map, « Tester les notifications » in the menu). Clicking one opens the map.
+/// notification (📣 button of the map, « Tester les notifications » in the menu). Clicking one opens the map,
+/// or (« attend ta réponse », by default) goes to the agent's session.
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     var onOpen: (() -> Void)?
+    /// Click on a « attend ta réponse » notification (agent id); falls back to onOpen when nil.
+    var onOpenAgent: ((String) -> Void)?
     private var center: UNUserNotificationCenter { UNUserNotificationCenter.current() }
 
     func setUp() {
@@ -21,6 +24,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.body = message.isEmpty ? "Les feux d'alarme sont allumés." : message
         content.sound = .default
         content.threadIdentifier = agent.id
+        content.userInfo = ["agentId": agent.id]
         let id = "waiting-\(agent.id)-\(Int(agent.waitingSince))"
         center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
@@ -111,7 +115,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
-        DispatchQueue.main.async { self.onOpen?() }
+        let agentId = response.notification.request.content.userInfo["agentId"] as? String
+        DispatchQueue.main.async {
+            if let agentId, let open = self.onOpenAgent { open(agentId) } else { self.onOpen?() }
+        }
         completionHandler()
     }
 }

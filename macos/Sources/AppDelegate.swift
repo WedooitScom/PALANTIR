@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let monitor = StateMonitor()
     private let notifier = Notifier()
     private let userMusic = UserMusic()
+    private lazy var focuser = SessionFocuser(monitor: monitor)
     private var window: MainWindowController!
     private var statusMenu: StatusMenu!
 
@@ -27,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu.onTestNotifications = { [weak self] in self?.testNotifications() }
         statusMenu.onChooseMusic = { [weak self] in self?.chooseMusic() }
         statusMenu.onResetMusic = { [weak self] in self?.resetMusic() }
+        statusMenu.onFocusSession = { [weak self] id in self?.focuser.focus(agentId: id) }
+        focuser.log = { [weak self] line in self?.server.log(line) }
+        window.onFocusSession = { [weak self] id in self?.focuser.focus(agentId: id) }
         statusMenu.customMusicName = { [weak self] in self?.userMusic.name }
         statusMenu.serverDescription = { [weak self] in
             switch self?.server.mode {
@@ -58,6 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Keeps the "5h 21%" title right when a window expires without new data.
         Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.statusMenu.refresh() }
         notifier.onOpen = { [weak self] in self?.window.show() }
+        notifier.onOpenAgent = { [weak self] id in
+            guard let self else { return }
+            if FocusPrefs.notificationClick == .session { self.focuser.focus(agentId: id) } else { self.window.show() }
+        }
         notifier.setUp()
 
         server.ensureRunning()

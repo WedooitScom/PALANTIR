@@ -193,6 +193,30 @@ h1 {
   font-size: 18px;
 }
 .sound-panel[hidden] { display: none; }
+
+/* « Aller à cette session » (in a browser: how to get back to the session) */
+.go-session { margin: 0 0 8px; }
+.session-hint {
+  position: fixed;
+  z-index: 21;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100vw - 16px));
+  padding: 8px 12px 10px;
+  font-size: 18px;
+}
+.session-hint[hidden] { display: none; }
+.session-hint p { margin: 6px 0; }
+.hint-cmd {
+  display: block;
+  margin: 4px 0 6px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 15px;
+  word-break: break-all;
+  user-select: all;
+}
 .sp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .sp-head b { font-family: var(--pixel); font-size: 10px; }
 .sp-row { display: grid; grid-template-columns: 70px minmax(0, 1fr) 30px; align-items: center; gap: 6px; }

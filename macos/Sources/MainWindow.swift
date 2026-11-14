@@ -27,6 +27,8 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
     var onPageLog: ((String) -> Void)?
     /// Page -> native: sound settings buttons ("choose" | "reset" the custom music).
     var onMusicMessage: ((String) -> Void)?
+    /// Page -> native: « Aller à cette session ». Only the agent id is taken from the page.
+    var onFocusSession: ((String) -> Void)?
 
     init() {
         let config = WKWebViewConfiguration()
@@ -39,7 +41,7 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
         // LOTR_AUDIO_DEBUG=music: same, and the music plays for this launch (prefs untouched).
         let debugEnv = ProcessInfo.processInfo.environment["LOTR_AUDIO_DEBUG"]
         let audioDebug = debugEnv == "music" ? "'music'" : debugEnv == "1" ? "true" : "false"
-        let marker = WKUserScript(source: "window.LOTRNative = Object.freeze({ app: true, version: 2, audioDebug: \(audioDebug) });",
+        let marker = WKUserScript(source: "window.LOTRNative = Object.freeze({ app: true, version: 3, focusSession: true, audioDebug: \(audioDebug) });",
                                   injectionTime: .atDocumentStart, forMainFrameOnly: true)
         config.userContentController.addUserScript(marker)
         let ucc = config.userContentController
@@ -81,6 +83,9 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
         case "music":
             let action = (body["action"] as? String) == "reset" ? "reset" : "choose"
             onMusicMessage?(action)
+        case "focusSession":
+            // The id is only used as a key into the app's own state (StateMonitor).
+            if let id = body["agentId"] as? String, !id.isEmpty, id.count <= 300 { onFocusSession?(id) }
         default:
             break
         }

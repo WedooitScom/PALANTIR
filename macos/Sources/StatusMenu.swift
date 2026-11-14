@@ -14,6 +14,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     var onTestNotifications: (() -> Void)?
     var onChooseMusic: (() -> Void)?
     var onResetMusic: (() -> Void)?
+    /// « Aller à cette session » (agent id).
+    var onFocusSession: ((String) -> Void)?
     /// Name of the custom music file, nil when the generated tune is used.
     var customMusicName: () -> String? = { nil }
     var serverDescription: () -> String = { "" }
@@ -67,12 +69,15 @@ final class StatusMenu: NSObject, NSMenuDelegate {
                 for a in w.prefix(12) {
                     let question = (a.waitingMessage ?? "").replacingOccurrences(of: "\n", with: " ")
                     let title = "🔥 \(a.project.isEmpty ? "Compagnie" : a.project) — \(clip(question, 70))"
-                    let mi = NSMenuItem(title: title, action: #selector(openMap), keyEquivalent: "")
+                    let mi = NSMenuItem(title: title, action: a.demo ? #selector(openMap) : #selector(focusSession(_:)), keyEquivalent: "")
                     mi.target = self
-                    mi.toolTip = a.waitingMessage
+                    mi.representedObject = a.id
+                    mi.toolTip = a.demo ? a.waitingMessage : "\(FocusText.menuWaitingTip)\n\(a.waitingMessage ?? "")"
                     menu.addItem(mi)
                 }
             }
+            menu.addItem(.separator())
+            menu.addItem(sessionsItem())
             if let u = monitor.usage {
                 menu.addItem(.separator())
                 let tag = u.demo ? " (démo)" : ""
@@ -99,6 +104,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.addItem(demo)
         menu.addItem(action("Ouvrir dans le navigateur", #selector(openBrowser)))
         menu.addItem(action("Tester les notifications", #selector(testNotifications)))
+        menu.addItem(focusSettingsItem())
         menu.addItem(.separator())
         let musicName = customMusicName()
         let choose = action("Choisir ta musique…", #selector(chooseMusic))
@@ -114,6 +120,51 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quitter Terre du Milieu", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
+    }
+
+    /// Submenu « Sessions »: every active real session, click = go to it.
+    private func sessionsItem() -> NSMenuItem {
+        let item = NSMenuItem(title: FocusText.menuSessions, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        let list = monitor.sessions.filter { $0.status != "done" && !$0.demo }
+            .sorted { $0.project.localizedCaseInsensitiveCompare($1.project) == .orderedAscending }
+        for s in list.prefix(30) {
+            let icon = s.origin?.icon ?? "•"
+            let fire = s.isWaiting ? " 🔥" : ""
+            let mi = NSMenuItem(title: "\(icon) \(s.project.isEmpty ? "Compagnie" : s.project)\(fire)", action: #selector(focusSession(_:)), keyEquivalent: "")
+            mi.target = self
+            mi.representedObject = s.id
+            mi.toolTip = s.cwd
+            sub.addItem(mi)
+        }
+        if sub.items.isEmpty { sub.addItem(disabled(FocusText.menuNoSession)) }
+        item.submenu = sub
+        return item
+    }
+
+    /// Submenu with the two preferences of « Aller à cette session ».
+    private func focusSettingsItem() -> NSMenuItem {
+        let item = NSMenuItem(title: FocusText.menuSettings, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        sub.addItem(disabled(FocusText.menuDesktopHeader))
+        let link = action(FocusText.menuDesktopLink, #selector(setDesktopLink))
+        link.state = FocusPrefs.desktopMethod == .link ? .on : .off
+        let app = action(FocusText.menuDesktopApp, #selector(setDesktopApp))
+        app.state = FocusPrefs.desktopMethod == .app ? .on : .off
+        sub.addItem(link)
+        sub.addItem(app)
+        sub.addItem(.separator())
+        sub.addItem(disabled(FocusText.menuNotifHeader))
+        let ns = action(FocusText.menuNotifSession, #selector(setNotifSession))
+        ns.state = FocusPrefs.notificationClick == .session ? .on : .off
+        let nm = action(FocusText.menuNotifMap, #selector(setNotifMap))
+        nm.state = FocusPrefs.notificationClick == .map ? .on : .off
+        sub.addItem(ns)
+        sub.addItem(nm)
+        item.submenu = sub
+        return item
     }
 
     private func disabled(_ title: String) -> NSMenuItem {
@@ -133,6 +184,13 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     private func clip(_ s: String, _ n: Int) -> String { s.count > n ? String(s.prefix(n - 1)) + "…" : s }
 
     @objc private func openMap() { onOpenMap?() }
+    @objc private func focusSession(_ sender: NSMenuItem) {
+        if let id = sender.representedObject as? String { onFocusSession?(id) }
+    }
+    @objc private func setDesktopLink() { FocusPrefs.desktopMethod = .link }
+    @objc private func setDesktopApp() { FocusPrefs.desktopMethod = .app }
+    @objc private func setNotifSession() { FocusPrefs.notificationClick = .session }
+    @objc private func setNotifMap() { FocusPrefs.notificationClick = .map }
     @objc private func toggleDemo() { onToggleDemo?() }
     @objc private func openBrowser() { onOpenBrowser?() }
     @objc private func installHooks() { onInstallHooks?() }

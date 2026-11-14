@@ -31,6 +31,10 @@ npm run uninstall-hooks   # les retire
 - Événements écoutés : SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Notification, Stop, SubagentStop, SessionEnd.
 - Le script `hooks/send-event.sh` envoie le JSON du hook au serveur avec `curl` (timeout 1 s) et sort
   toujours en code 0, silencieusement : il ne bloque jamais Claude Code, même si la carte est éteinte.
+- Il ajoute l'en-tête `X-LOTR-Origin` (où tourne la session, pour « Aller à cette session ») avec une liste
+  blanche stricte, chaque valeur validée par le script puis par le serveur : `entrypoint`, `hostSessionId`
+  (`local_…`), `termProgram`, `bundleId`, `itermSessionId`, `tty` (`/dev/ttysNNN`, cherché parmi les
+  processus parents) et `claudePid`. Aucune autre variable d'environnement n'est envoyée.
   Port différent : exporte `LOTR_MAP_PORT` dans l'environnement de Claude Code.
 
 ## Usage de Claude (status line + transcripts)
@@ -100,6 +104,15 @@ Ce que fait l'app :
   notifications » dans le menu) demande l'autorisation si besoin, ouvre Réglages Système > Notifications
   si elle est refusée, ou envoie une notification de test. Dans l'app, la page n'envoie jamais de
   notification Web (pas de doublon).
+- **⚔️ Aller à cette session** (panneau de détail, alertes « attend ta réponse », menu de la barre de menus
+  avec un sous-menu *Sessions*, clic sur une notification) : met au premier plan la vraie session Claude Code.
+  App Claude (bureau) : lien `claude://code/continue?session=…` (non documenté, peut être ignoré) puis
+  activation de Claude ; Terminal / iTerm2 : l'onglet dont le tty correspond (AppleScript, autorisation
+  « Automatisation » demandée la première fois) ; VS Code / Cursor : l'éditeur ouvert sur le dossier ;
+  session terminée : propose `claude --resume <id>` dans une nouvelle fenêtre du Terminal. La page n'envoie
+  que l'identifiant de l'agent : l'app relit l'origine dans son propre état et valide chaque valeur.
+  Menu *Aller aux sessions* : lien direct ou juste ouvrir Claude pour les sessions de bureau, et clic sur
+  une notification = session (par défaut) ou carte. Dans un navigateur, le bouton affiche la commande à copier.
 - **Usage** : à côté du 🔥, `5h 21% · 7d 20%` dans la barre de menus (masqué sans données) ; dans le menu,
   les limites avec leur reset et les jetons du jour.
 - **Hooks** : l'installation depuis l'app (après confirmation) copie `send-event.sh` dans

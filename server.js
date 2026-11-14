@@ -3,6 +3,7 @@
  * Carte de la Terre du Milieu — local server.
  *
  *   POST /event        raw Claude Code hook payload (JSON) -> state update
+ *                      (X-LOTR-Origin: k=v&k=v header = where the session runs, whitelisted fields)
  *   POST /statusline   raw Claude Code status line payload (JSON) -> usage (limits, context, cost)
  *   GET  /stream       Server-Sent Events (snapshot then incremental events)
  *   GET  /state        JSON snapshot
@@ -18,7 +19,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { Store } = require('./lib/store');
+const { Store, parseOriginHeader } = require('./lib/store');
 const { Demo } = require('./lib/demo');
 const { TranscriptReader } = require('./lib/transcripts');
 const { UserMusic, tokenOk } = require('./lib/usermusic');
@@ -161,6 +162,9 @@ async function handle(req, res) {
         return send(res, 400, { error: 'invalid json' });
       }
       const hook = url.searchParams.get('hook') || req.headers['x-hook-event'] || undefined;
+      // Session origin from the hook script (validated again by the store); the header wins.
+      const origin = parseOriginHeader(req.headers['x-lotr-origin']);
+      if (origin && raw && typeof raw === 'object' && !Array.isArray(raw)) raw.origin = origin;
       try {
         store.ingest(raw, { hook: hook ? String(hook).replace(/[^A-Za-z]/g, '').slice(0, 40) : undefined });
       } catch (e) {

@@ -20,9 +20,15 @@ enum AppPaths {
     }
 
     /// ~/Library/Application Support/TerreDuMilieu (events, server log, stable hook script).
+    /// `LOTR_DATA_DIR=<absolute dir>` (tests) uses another folder, so a test instance never touches the real data.
     static var supportDir: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = base.appendingPathComponent("TerreDuMilieu", isDirectory: true)
+        let dir: URL
+        if let custom = ProcessInfo.processInfo.environment["LOTR_DATA_DIR"], custom.hasPrefix("/") {
+            dir = URL(fileURLWithPath: custom, isDirectory: true)
+        } else {
+            let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            dir = base.appendingPathComponent("TerreDuMilieu", isDirectory: true)
+        }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

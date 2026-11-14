@@ -4,6 +4,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let server = ServerManager()
     private let monitor = StateMonitor()
     private let notifier = Notifier()
+    private let userMusic = UserMusic()
     private var window: MainWindowController!
     private var statusMenu: StatusMenu!
 
@@ -15,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.statusText = { [weak self] in self?.server.lastError }
 
         server.onNodeMissing = { [weak self] in self?.alertNodeMissing() }
+        server.userMusicPath = { [weak self] in self?.userMusic.path }
 
         statusMenu = StatusMenu(monitor: monitor)
         statusMenu.onOpenMap = { [weak self] in self?.window.show() }
@@ -23,6 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu.onInstallHooks = { [weak self] in self?.runHooksScript(install: true) }
         statusMenu.onUninstallHooks = { [weak self] in self?.runHooksScript(install: false) }
         statusMenu.onTestNotifications = { [weak self] in self?.testNotifications() }
+        statusMenu.onChooseMusic = { [weak self] in self?.chooseMusic() }
+        statusMenu.onResetMusic = { [weak self] in self?.resetMusic() }
+        statusMenu.customMusicName = { [weak self] in self?.userMusic.name }
         statusMenu.serverDescription = { [weak self] in
             switch self?.server.mode {
             case .external: return "Serveur existant sur le port \(AppPaths.port)"
@@ -47,6 +52,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         window.onPageLog = { [weak self] line in self?.server.log(line) }
+        window.onMusicMessage = { [weak self] action in
+            if action == "reset" { self?.resetMusic() } else { self?.chooseMusic() }
+        }
         // Keeps the "5h 21%" title right when a window expires without new data.
         Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.statusMenu.refresh() }
         notifier.onOpen = { [weak self] in self?.window.show() }
@@ -176,6 +184,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         done.runModal()
     }
 
+    // MARK: - custom music ("Ta musique")
+
+    @objc private func chooseMusic() {
+        userMusic.choose { [weak self] url in
+            guard let self, let url else { return }
+            self.server.setUserMusic(url.path) { error in
+                if let error {
+                    self.server.log("musique perso : refusée (\(error))")
+                    self.alert("Impossible d'utiliser cette musique", error)
+                    return
+                }
+                self.userMusic.remember(url)
+                self.server.log("musique perso : fichier choisi (\(url.pathExtension))")
+                self.window.sendToPage(["type": "music", "source": "custom"])
+            }
+        }
+    }
+
+    @objc private func resetMusic() {
+        userMusic.clear()
+        server.setUserMusic(nil) { [weak self] _ in
+            self?.server.log("musique perso : retour à la musique générée")
+            self?.window.sendToPage(["type": "music", "source": "generated"])
+        }
+    }
+
+    private func alert(_ title: String, _ text: String) {
+        let a = NSAlert()
+        a.messageText = title
+        a.informativeText = text
+        a.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        a.runModal()
+    }
+
     // MARK: - main menu
 
     private func buildMainMenu() {
@@ -184,6 +227,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "À propos de Terre du Milieu", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Choisir ta musique…", action: #selector(chooseMusic), keyEquivalent: "").target = self
+        appMenu.addItem(withTitle: "Revenir à la musique générée", action: #selector(resetMusic), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Masquer Terre du Milieu", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let others = appMenu.addItem(withTitle: "Masquer les autres", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")

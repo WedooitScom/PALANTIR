@@ -25,13 +25,21 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
     var onNotifMessage: ((String, @escaping ([String: Any]) -> Void) -> Void)?
     /// Page -> native log line (written to server.log).
     var onPageLog: ((String) -> Void)?
+    /// Page -> native: sound settings buttons ("choose" | "reset" the custom music).
+    var onMusicMessage: ((String) -> Void)?
 
     init() {
         let config = WKWebViewConfiguration()
-        config.mediaTypesRequiringUserActionForPlayback = [] // let the map play its sounds
+        // Set on the configuration BEFORE the web view is created (it is copied at init):
+        // WebAudio and <audio> play without a user gesture.
+        config.mediaTypesRequiringUserActionForPlayback = []
         config.websiteDataStore = .default()
         // Tells the page it runs inside the app: native notifications replace the Web ones.
-        let marker = WKUserScript(source: "window.LOTRNative = Object.freeze({ app: true, version: 1 });",
+        // LOTR_AUDIO_DEBUG=1: the page logs its audio state to server.log every 20 s;
+        // LOTR_AUDIO_DEBUG=music: same, and the music plays for this launch (prefs untouched).
+        let debugEnv = ProcessInfo.processInfo.environment["LOTR_AUDIO_DEBUG"]
+        let audioDebug = debugEnv == "music" ? "'music'" : debugEnv == "1" ? "true" : "false"
+        let marker = WKUserScript(source: "window.LOTRNative = Object.freeze({ app: true, version: 2, audioDebug: \(audioDebug) });",
                                   injectionTime: .atDocumentStart, forMainFrameOnly: true)
         config.userContentController.addUserScript(marker)
         let ucc = config.userContentController
@@ -70,6 +78,9 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
             onNotifMessage?(action) { [weak self] reply in self?.sendToPage(reply) }
         case "log":
             if let m = body["message"] as? String { onPageLog?(String(m.prefix(300))) }
+        case "music":
+            let action = (body["action"] as? String) == "reset" ? "reset" : "choose"
+            onMusicMessage?(action)
         default:
             break
         }
@@ -143,6 +154,18 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
     private func escape(_ s: String) -> String {
         s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
+    }
+
+    // MARK: - NSWindowDelegate
+
+    /// The window stays alive when closed (isReleasedWhenClosed = false, web view kept): sounds and
+    /// music go on from the menu bar. Coming back to the window also wakes the AudioContext up if
+    /// WebKit suspended it in the meantime.
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard showingMap else { return }
+        webView.evaluateJavaScript("window.LOTRAudio && window.LOTRAudio.resume ? window.LOTRAudio.resume('fenêtre active') : 'absent'") { [weak self] result, _ in
+            if let st = result as? String, st != "running" { self?.onPageLog?("natif: fenêtre active, contexte audio \(st) -> resume() demandé") }
+        }
     }
 
     // MARK: - WKNavigationDelegate

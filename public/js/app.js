@@ -2,6 +2,31 @@
 (function () {
   'use strict';
 
+  // New UI strings of the sound settings (kept together for the coming translation work).
+  const STR = {
+    sfxOn: 'Effets sonores : activés (clic droit ou appui long : réglages du son)',
+    sfxOff: 'Effets sonores : coupés (clic droit ou appui long : réglages du son)',
+    musicOn: "Musique d'ambiance : activée (clic droit ou appui long : réglages du son)",
+    musicOff: "Musique d'ambiance : coupée (clic droit ou appui long : réglages du son)",
+    panelTitle: 'Réglages du son',
+    close: 'Fermer',
+    volMaster: 'Général',
+    volMusic: 'Musique',
+    volSfx: 'Effets',
+    sfxToggle: 'Effets sonores (bip, alertes, ambiance)',
+    musicToggle: "Musique d'ambiance",
+    musicSource: 'Musique jouée :',
+    srcGenerated: 'gigue celtique générée',
+    srcCustom: (name) => `ta musique (${name || 'fichier local'})`,
+    chooseMusic: 'Choisir ta musique…',
+    backToGenerated: 'Revenir à la musique générée',
+    hintBrowser: 'Le fichier reste sur ton ordinateur : il est lu dans cette page pour cette session seulement.',
+    hintApp: "Le fichier reste à sa place : l'app ne mémorise que son emplacement (aussi dans le menu de l'app et de la barre de menus).",
+    musicPicked: (name) => `🎵 Ta musique : ${name}`,
+    musicBack: '🎵 Retour à la musique générée',
+    musicError: (name) => `🎵 Impossible de lire ${name || 'ta musique'} : retour à la musique générée.`,
+  };
+
   const { Scene, STATUS, roleAvatar, modelInfo } = window.LOTRScene;
   const TERR = window.LOTRMap.TERR_BY_KEY;
   const Sprites = window.Sprites;
@@ -34,18 +59,40 @@
     detail: null, // { type: 'agent', id } | { type: 'territory', key }
     dismissed: new Set(),
     knownWaiting: new Set(),
+    snapWaiting: new Set(),
+    lastLogId: 0,
+    reminders: new Map(), // waiting key -> { n, next }
+    worked: new Map(), // sessionId -> did something since the last prompt
+    returned: new Set(), // subagent ids already greeted by the fanfare
     usage: { real: null, demo: null },
   };
   // Inside the macOS app (WKUserScript): native notifications replace the Web ones.
   const NATIVE = !!(window.LOTRNative && window.LOTRNative.app && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lotr);
 
+  // sfx: effects (beep + alerts + ambient), on by default; music off by default; volumes 0..1.
+  let prefsMigrated = false;
   const prefs = (() => {
-    const d = { sound: true, music: false, night: true, legend: true, side: true };
+    const d = { sfx: true, music: false, night: true, legend: true, side: true, volume: 0.8, musicVolume: 0.8, sfxVolume: 0.8 };
+    let saved = {};
     try {
-      return Object.assign(d, JSON.parse(localStorage.getItem('lotr-prefs') || '{}'));
+      saved = JSON.parse(localStorage.getItem('lotr-prefs') || '{}') || {};
     } catch {
-      return d;
+      saved = {};
     }
+    if (typeof saved !== 'object' || Array.isArray(saved)) saved = {};
+    // Before: { sound: bool } for the alert beep only.
+    if ('sound' in saved) {
+      if (typeof saved.sfx !== 'boolean' && typeof saved.sound === 'boolean') saved.sfx = saved.sound;
+      delete saved.sound;
+      prefsMigrated = true;
+    }
+    const p = Object.assign(d, saved);
+    for (const k of ['volume', 'musicVolume', 'sfxVolume']) {
+      const v = Number(p[k]);
+      p[k] = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8;
+    }
+    p.sfx = p.sfx !== false;
+    return p;
   })();
   function savePrefs() {
     try {
@@ -164,6 +211,7 @@
   });
   scene.setAgents(state.agents);
   scene.nightEnabled = prefs.night;
+  if (prefsMigrated) savePrefs();
 
   // ------------------------------------------------------------ SSE
 
@@ -191,7 +239,10 @@
       state.agents.delete(d.id);
       scheduleUI();
     });
-    on('log', (entry) => addLog(entry));
+    on('log', (entry) => {
+      addLog(entry);
+      soundFor(entry);
+    });
     on('fx', (fx) => scene.addFlight(fx));
     on('usage', (u) => {
       state.usage = u || { real: null, demo: null };
@@ -206,6 +257,11 @@
   function applySnapshot(snap) {
     state.agents.clear();
     for (const a of snap.agents || []) state.agents.set(a.id, a);
+    // What is already there when the page (re)connects never makes a sound.
+    state.snapWaiting = new Set((snap.agents || []).filter((a) => a.status === 'waiting').map(waitKey));
+    // Reset (not max): a restarted server numbers its log entries from 1 again.
+    state.lastLogId = 0;
+    for (const e of (snap.chronicle || []).concat(snap.council || [])) state.lastLogId = Math.max(state.lastLogId, Number(e.id) || 0);
     state.chronicle = (snap.chronicle || []).slice(-MAX_FEED);
     state.council = (snap.council || []).slice(-MAX_FEED);
     state.usage = snap.usage || { real: null, demo: null };
@@ -316,11 +372,18 @@
 
   const Sound = window.LOTRAudio;
   function beep() {
-    if (prefs.sound) Sound.beep();
+    if (prefs.sfx) Sound.beep();
   }
 
-  function notify(a) {
-    beep();
+  const waitKey = (a) => a.id + ':' + ((a.waiting && a.waiting.since) || 0);
+  const BEACON_EVERY_MS = 45000;
+  const BEACON_MAX = 5;
+
+  function notify(a, silent) {
+    if (!silent) {
+      Sound.sfx.play('beacon');
+      state.reminders.set(waitKey(a), { n: 1, next: Date.now() + BEACON_EVERY_MS });
+    }
     if (NATIVE) return; // the macOS app already sends a native notification for this wait
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (!document.hidden && document.hasFocus()) return;
@@ -339,12 +402,21 @@
   function renderAlerts() {
     const waiting = [...state.agents.values()].filter((a) => a.status === 'waiting').sort((p, q) => ((p.waiting && p.waiting.since) || 0) - ((q.waiting && q.waiting.since) || 0));
     const keys = new Set();
+    const now = Date.now();
     for (const a of waiting) {
-      const key = a.id + ':' + ((a.waiting && a.waiting.since) || 0);
+      const key = waitKey(a);
       keys.add(key);
-      if (!state.knownWaiting.has(key)) notify(a);
+      if (!state.knownWaiting.has(key)) notify(a, state.snapWaiting.has(key));
+      // The beacon calls again every ~45 s while the wait lasts (5 calls at most, none once dismissed).
+      const r = state.reminders.get(key);
+      if (r && r.n < BEACON_MAX && now >= r.next && !state.dismissed.has(key)) {
+        r.n++;
+        r.next = now + BEACON_EVERY_MS;
+        Sound.sfx.play('beacon');
+      }
     }
     state.knownWaiting = keys;
+    for (const k of [...state.reminders.keys()]) if (!keys.has(k)) state.reminders.delete(k);
     Sound.music.setTension(waiting.length > 0);
     for (const k of [...state.dismissed]) if (!keys.has(k)) state.dismissed.delete(k);
 
@@ -397,6 +469,68 @@
   setInterval(() => {
     if ([...state.agents.values()].some((a) => a.status === 'waiting')) renderAlerts();
   }, 1000);
+
+  // ------------------------------------------------------------ sound effects for live events
+
+  const EDIT_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit']);
+  /** Live log entries only (the snapshot and the server's replayed events never reach here). */
+  function soundFor(e) {
+    if (!e || (Number(e.id) || 0) <= state.lastLogId) return;
+    state.lastLogId = Number(e.id) || state.lastLogId;
+    const sid = e.sessionId;
+    if (e.kind === 'return') {
+      // PostToolUse(Agent) and SubagentStop both report the return: one fanfare per subagent.
+      if (e.agentId && !state.returned.has(e.agentId)) {
+        state.returned.add(e.agentId);
+        if (state.returned.size > 500) state.returned.clear();
+        Sound.sfx.play('fanfare');
+      }
+      if (sid) state.worked.set(sid, true);
+      return;
+    }
+    if (e.channel !== 'chronicle') return;
+    switch (e.kind) {
+      case 'start':
+        Sound.sfx.play('inn');
+        break;
+      case 'prompt':
+        if (sid) state.worked.set(sid, false);
+        break;
+      case 'spawn':
+        if (sid) state.worked.set(sid, true);
+        Sound.sfx.play('horn');
+        break;
+      case 'message':
+        if (sid) state.worked.set(sid, true);
+        Sound.sfx.play('eagle');
+        break;
+      case 'tool':
+        if (sid) state.worked.set(sid, true);
+        if (EDIT_TOOLS.has(e.tool) || (!e.tool && e.icon === '⚒')) Sound.sfx.play('anvil');
+        break;
+      case 'idle': // Stop: fanfare only when the turn actually did something
+        if (sid && state.worked.get(sid)) {
+          state.worked.set(sid, false);
+          Sound.sfx.play('fanfare');
+        }
+        break;
+      case 'usage':
+        if (e.reset) Sound.sfx.play('sunrise');
+        else if (Number(e.level) >= 80) Sound.sfx.play('drum');
+        break;
+      default:
+        break;
+    }
+  }
+
+  Sound.ambient.setProvider(() => {
+    const act = [...state.agents.values()].filter(isActive);
+    return {
+      night: scene.forceNight || (prefs.night && window.LOTRMap.nightAmount(new Date()) > 0.19),
+      coding: act.some((a) => a.status === 'coding'),
+      calm: !act.some((a) => a.status !== 'idle'),
+    };
+  });
 
   // ------------------------------------------------------------ feeds
 
@@ -701,29 +835,227 @@
   };
 
   function applySound() {
-    $('#btnSound').textContent = prefs.sound ? '🔔' : '🔕';
-    $('#btnSound').title = prefs.sound ? 'Son des alertes : activé' : 'Son des alertes : coupé';
+    $('#btnSound').textContent = prefs.sfx ? '🔊' : '🔈';
+    $('#btnSound').title = prefs.sfx ? STR.sfxOn : STR.sfxOff;
+    Sound.sfx.setEnabled(prefs.sfx);
+    syncSoundPanel();
   }
-  $('#btnSound').onclick = () => {
-    prefs.sound = !prefs.sound;
+  function toggleSfx() {
+    prefs.sfx = !prefs.sfx;
     savePrefs();
     applySound();
     beep();
-  };
-  applySound();
+  }
+  onPress($('#btnSound'), toggleSfx, openSoundPanel);
 
   function applyMusic() {
     $('#btnMusic').textContent = prefs.music ? '🎵' : '🔇';
-    $('#btnMusic').title = prefs.music ? "Musique d'ambiance : activée" : "Musique d'ambiance : coupée";
+    $('#btnMusic').title = prefs.music ? STR.musicOn : STR.musicOff;
     if (prefs.music) Sound.music.start();
     else Sound.music.stop();
+    syncSoundPanel();
   }
-  $('#btnMusic').onclick = () => {
+  function toggleMusic() {
     prefs.music = !prefs.music;
     savePrefs();
     applyMusic();
-  };
+  }
+  onPress($('#btnMusic'), toggleMusic, openSoundPanel);
+
+  // ------------------------------------------------------------ sound settings (🔊 right click / long press)
+
+  /** Click = toggle; right click or long press (touch) = settings panel. */
+  function onPress(btn, click, menu) {
+    let timer = null;
+    let longFired = false;
+    btn.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      menu(btn);
+    });
+    btn.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      longFired = false;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        longFired = true;
+        menu(btn);
+      }, 550);
+    });
+    for (const t of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(t, () => clearTimeout(timer));
+    btn.addEventListener('click', () => {
+      if (longFired) {
+        longFired = false;
+        return;
+      }
+      click();
+    });
+  }
+
+  const soundPanel = (() => {
+    const box = el('div', 'sound-panel panel');
+    box.id = 'soundPanel';
+    box.hidden = true;
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', STR.panelTitle);
+    const head = el('div', 'sp-head');
+    const x = el('button', 'btn small ghost', '×');
+    x.type = 'button';
+    x.title = STR.close;
+    x.onclick = closeSoundPanel;
+    head.append(el('b', null, STR.panelTitle), x);
+
+    const sliders = {};
+    const slider = (key, text) => {
+      const row = el('label', 'sp-row');
+      const input = el('input');
+      input.type = 'range';
+      input.min = '0';
+      input.max = '100';
+      input.step = '1';
+      input.id = 'vol-' + key;
+      input.setAttribute('aria-label', text);
+      const out = el('output', 'sp-val');
+      input.addEventListener('input', () => {
+        prefs[key] = Number(input.value) / 100;
+        out.textContent = input.value;
+        applyLevels();
+      });
+      input.addEventListener('change', savePrefs);
+      row.append(el('span', 'sp-label', text), input, out);
+      sliders[key] = { input, out };
+      return row;
+    };
+    const check = (text, get, toggle) => {
+      const row = el('label', 'sp-check');
+      const input = el('input');
+      input.type = 'checkbox';
+      input.addEventListener('change', () => {
+        if (input.checked !== get()) toggle();
+      });
+      row.append(input, document.createTextNode(' ' + text));
+      return { row, input, get };
+    };
+    const sfxCheck = check(STR.sfxToggle, () => prefs.sfx, toggleSfx);
+    const musicCheck = check(STR.musicToggle, () => prefs.music, toggleMusic);
+
+    const src = el('div', 'sp-src');
+    const srcName = el('b');
+    src.append(document.createTextNode(STR.musicSource + ' '), srcName);
+    const choose = el('button', 'btn small', STR.chooseMusic);
+    choose.type = 'button';
+    const back = el('button', 'btn small', STR.backToGenerated);
+    back.type = 'button';
+    const file = el('input');
+    file.type = 'file';
+    file.accept = 'audio/*';
+    file.hidden = true;
+    choose.onclick = () => {
+      if (NATIVE) sendNative({ type: 'music', action: 'choose' });
+      else file.click();
+    };
+    back.onclick = () => {
+      if (NATIVE) sendNative({ type: 'music', action: 'reset' });
+      else useGeneratedMusic(true);
+    };
+    file.addEventListener('change', () => {
+      const f = file.files && file.files[0];
+      file.value = '';
+      if (!f) return;
+      // Read in place for this session only: never uploaded, never stored.
+      Sound.music.setSource({ url: URL.createObjectURL(f), name: f.name, revoke: true });
+      musicChosen(f.name);
+    });
+    const buttons = el('div', 'sp-buttons');
+    buttons.append(choose, back, file);
+    const hint = el('p', 'sp-hint', NATIVE ? STR.hintApp : STR.hintBrowser);
+
+    box.append(head, slider('volume', STR.volMaster), slider('musicVolume', STR.volMusic), slider('sfxVolume', STR.volSfx),
+      sfxCheck.row, musicCheck.row, src, buttons, hint);
+    document.body.append(box);
+    return { box, sliders, checks: [sfxCheck, musicCheck], srcName, back };
+  })();
+
+  function applyLevels() {
+    Sound.setLevels({ volume: prefs.volume, music: prefs.musicVolume, sfx: prefs.sfxVolume });
+  }
+
+  function syncSoundPanel() {
+    if (!soundPanel) return;
+    for (const [k, s] of Object.entries(soundPanel.sliders)) {
+      const v = String(Math.round(prefs[k] * 100));
+      if (document.activeElement !== s.input) s.input.value = v;
+      s.out.textContent = v;
+    }
+    for (const c of soundPanel.checks) c.input.checked = c.get();
+    const custom = Sound.music.source === 'custom';
+    soundPanel.srcName.textContent = custom ? STR.srcCustom(Sound.music.customName) : STR.srcGenerated;
+    soundPanel.back.disabled = !custom;
+  }
+
+  function openSoundPanel(btn) {
+    syncSoundPanel();
+    const box = soundPanel.box;
+    box.hidden = false;
+    const r = (btn || $('#btnSound')).getBoundingClientRect();
+    const w = box.offsetWidth;
+    box.style.top = Math.round(r.bottom + 8) + 'px';
+    box.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))) + 'px';
+  }
+  function closeSoundPanel() {
+    soundPanel.box.hidden = true;
+  }
+  document.addEventListener('pointerdown', (ev) => {
+    if (soundPanel.box.hidden) return;
+    if (soundPanel.box.contains(ev.target) || ev.target.closest('#btnSound, #btnMusic')) return;
+    closeSoundPanel();
+  }, true);
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && !soundPanel.box.hidden) closeSoundPanel();
+  });
+
+  /** A custom track was picked: switch the music on so it is heard. */
+  function musicChosen(name) {
+    flash(STR.musicPicked(name), 'good');
+    if (!prefs.music) {
+      prefs.music = true;
+      savePrefs();
+    }
+    applyMusic();
+  }
+  function useGeneratedMusic(announce) {
+    Sound.music.setSource(null);
+    if (announce) flash(STR.musicBack, '');
+    syncSoundPanel();
+  }
+  Sound.music.onCustomError((name) => {
+    flash(STR.musicError(name), 'bad');
+    syncSoundPanel();
+  });
+
+  /** The server serves the track chosen in the macOS app (GET /user-music), if any. */
+  async function loadServerMusic(announce) {
+    try {
+      const r = await fetch('user-music/info', { cache: 'no-store' });
+      if (!r.ok) return;
+      const info = await r.json();
+      if (info && info.available) {
+        Sound.music.setSource({ url: `user-music?v=${Number(info.version) || 0}`, name: info.name });
+        if (announce) musicChosen(info.name);
+      } else if (Sound.music.source === 'custom' && /^user-music/.test(currentMusicUrl)) {
+        useGeneratedMusic(announce);
+      }
+      currentMusicUrl = info && info.available ? 'user-music' : '';
+    } catch {
+      /* older server: no custom music */
+    }
+    syncSoundPanel();
+  }
+  let currentMusicUrl = '';
+
+  applyLevels();
+  applySound();
   applyMusic();
+  loadServerMusic(false);
 
   // ------------------------------------------------------------ notifications (📣)
 
@@ -767,6 +1099,16 @@
 
   // Replies from the macOS app (evaluateJavaScript).
   window.LOTRNativeReply = function (msg) {
+    if (msg && msg.type === 'music') {
+      // The app registered (or cleared) the track on the server: reload the source.
+      sendNative({ type: 'log', message: `page: musique perso ${msg.source === 'custom' ? 'choisie' : 'retirée'}` });
+      if (msg.source === 'custom') loadServerMusic(true);
+      else {
+        useGeneratedMusic(true);
+        currentMusicUrl = '';
+      }
+      return;
+    }
     if (!msg || msg.type !== 'notif') return;
     console.log('[lotr] état des notifications reçu du natif :', msg.state, msg.action || '');
     sendNative({ type: 'log', message: `page: état des notifications reçu = ${msg.state} (action ${msg.action || 'status'}${msg.tested ? ', test envoyé' : ''})` });
@@ -829,6 +1171,21 @@
     }
   };
   applyNotif();
+
+  // Inside the app: report the audio state to server.log (no gesture ever happened at that point).
+  if (NATIVE) {
+    const audioLine = (why) => {
+      const st = Sound.status();
+      sendNative({ type: 'log', message: `page: audio ${why} : contexte ${st.state}, geste ${st.hadGesture ? 'oui' : 'non'}, `
+        + `t=${st.currentTime.toFixed(1)} s, page ${st.visibility}, musique ${st.musicWanted ? 'on' : 'off'} (${st.source}`
+        + `${st.generatedPlaying ? ', générée en cours' : ''}${st.customPlaying ? ', perso en cours' : ''}), notes ${st.notes}, effets ${st.sfx}` });
+    };
+    audioLine('au chargement');
+    setTimeout(() => audioLine('après 3 s'), 3000);
+    Sound.onStateChange(() => audioLine('changement d\'état'));
+    if (window.LOTRNative.audioDebug) setInterval(() => audioLine('suivi'), 20000);
+    if (window.LOTRNative.audioDebug === 'music') Sound.music.start(); // diagnostic launch only, prefs untouched
+  }
 
   function applyNight() {
     scene.nightEnabled = prefs.night;

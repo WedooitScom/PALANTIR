@@ -91,7 +91,8 @@ Ce que fait l'app :
   ne quitte pas l'app ; un clic sur l'icône du Dock la rouvre.
 - **Barre de menus** : icône pixel + « 🔥N » quand N agents attendent. Menu : résumé (compagnies actives,
   agents qui codent, en attente), liste des questions en attente, Ouvrir la carte, Mode démo, Ouvrir
-  dans le navigateur, Installer/Désinstaller les hooks Claude Code, Quitter. Le badge du Dock affiche
+  dans le navigateur, Choisir ta musique… / Revenir à la musique générée, Installer/Désinstaller les
+  hooks Claude Code, Quitter. Le badge du Dock affiche
   aussi le nombre d'agents en attente.
 - **Notifications** : « 🔥 <projet> attend ta réponse » avec la question, une seule fois par attente ;
   un clic ouvre la carte. L'autorisation est demandée au premier lancement. Aussi une seule fois par
@@ -106,7 +107,10 @@ Ce que fait l'app :
   `~/.claude/settings.json` : déplacer ou mettre à jour l'app ne casse rien. En ligne de commande,
   `LOTR_HOOK_DIR=<dossier> npm run install-hooks` fait de même.
 
-Variables utiles : `LOTR_DATA_DIR` (dossier des données du serveur, `data/` par défaut),
+Variables utiles : `LOTR_DATA_DIR` (dossier des données du serveur, `data/` par défaut ; pour l'app,
+remplace `~/Library/Application Support/TerreDuMilieu`, pratique pour une instance de test),
+`LOTR_AUDIO_DEBUG=1` (l'app écrit l'état audio de la page dans `server.log` toutes les 20 s ; `=music`
+lance aussi la musique pour ce lancement),
 `LOTR_APP_PORT=xxxx` ou `--port xxxx` pour pointer l'app vers un autre port (tests), par exemple
 `open -n --env LOTR_APP_PORT=4799 "dist/Terre du Milieu.app"`.
 
@@ -135,7 +139,7 @@ voir le détail (dossier, dernier prompt, 15 dernières actions, sous-agents).
 
 - `server.js` : serveur HTTP sur 127.0.0.1 uniquement. `POST /event` (JSON du hook), `POST /statusline`
   (JSON de la status line), `GET /stream` (SSE),
-  `GET /state` (instantané JSON), `POST /demo/start|stop`.
+  `GET /state` (instantané JSON), `POST /demo/start|stop`, `GET /user-music` (musique choisie dans l'app).
 - `lib/usage.js` / `lib/transcripts.js` : normalisation de la status line, seuils, lecture des transcripts.
 - `lib/store.js` : normalisation des hooks, statuts, chronique et Conseil d'Elrond. Les entrées/sorties
   d'outils sont tronquées (le contenu des fichiers écrits n'est jamais conservé).
@@ -143,7 +147,28 @@ voir le détail (dossier, dernier prompt, 15 dernières actions, sous-agents).
   (les événements de démo ne sont pas persistés).
 - Une session inactive depuis 30 min passe « partie », puis disparaît après 2 h.
 - Le cycle jour/nuit suit l'heure locale (bouton 🌙 pour le couper, `?night=1` pour forcer la nuit).
-- Bouton 🔔 : bip des alertes. Bouton 🎵 : musique d'ambiance originale (gigue celtique 8-bit),
-  générée en WebAudio, coupée par défaut ; tant qu'un agent attend, elle passe en mode « ombre »
-  (tambour grave, bourdon assombri, flûte qui se tait). Dans un navigateur, le son ne démarre
-  qu'après la première interaction avec la page ; dans l'app macOS, il marche directement.
+- Bouton 🔊/🔈 : effets sonores (activés par défaut), bip et alertes compris. Bouton 🎵 : musique
+  d'ambiance originale (gigue celtique 8-bit), générée en WebAudio, coupée par défaut ; tant qu'un agent
+  attend, elle passe en mode « ombre » (tambour grave, bourdon assombri, flûte qui se tait). Clic droit
+  (ou appui long) sur 🔊 ou 🎵 : *Réglages du son*, avec trois curseurs (général, musique, effets) et le
+  choix de la musique. Dans un navigateur, le son ne démarre qu'après la première interaction avec la
+  page ; dans l'app macOS, il marche directement, et continue fenêtre fermée (l'app reste dans la barre
+  de menus).
+- Effets sonores (8-bit, originaux, synthétisés, 0,1 à 1,2 s, sous la musique, qui baisse brièvement
+  pendant les plus importants) : clochette d'auberge (nouvelle session), appel de cor (sous-agent en
+  mission), « ting » d'enclume (Edit/Write, au plus un toutes les 8 s et seulement par hasard), cri
+  d'aigle (message entre agents), petite fanfare (fin d'un tour avec du travail, retour de sous-agent),
+  balise (agent en attente, rappelée toutes les 45 s, 5 fois au plus), tambour grave (limite 5 h ou 7 j
+  à 80 % et plus), lever de soleil (reset des limites). Au plus un effet toutes les 1,5 s (sauf la
+  balise) ; rien pour ce qui est déjà là au chargement. Ambiance très discrète toutes les 1 à 3 min :
+  oiseaux le jour, chouette la nuit, marteau lointain si des agents codent, vent ou feu de camp si tout
+  est calme. Débogage : `__lotrAudio.sfx` (compteurs par effet, effets écartés et pourquoi).
+- **Ta musique** : dans un navigateur, *Choisir ta musique…* (réglages du son) lit un fichier local pour
+  la session seulement (`URL.createObjectURL`, rien n'est envoyé). Dans l'app macOS, *Choisir ta
+  musique…* (menu de l'app, menu de la barre de menus ou réglages du son) mémorise seulement
+  l'emplacement du fichier (mp3, m4a, aac, wav, aiff) ; le serveur intégré le sert à la page
+  (`GET /user-music`, requêtes Range) sans jamais accepter de chemin venant d'une URL : il ne lit que le
+  chemin transmis par l'app (variable `LOTR_USER_MUSIC` au lancement ou `POST /user-music` authentifié
+  par un jeton propre à l'app). Avec un serveur lancé à part (`npm start`), la musique perso de l'app
+  n'est pas disponible. *Revenir à la musique générée* l'oublie. Même bus que la musique générée :
+  volume, fondus, boucle, baisse en mode « ombre » et pendant les alertes.

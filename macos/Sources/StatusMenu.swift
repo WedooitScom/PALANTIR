@@ -12,6 +12,10 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     var onInstallHooks: (() -> Void)?
     var onUninstallHooks: (() -> Void)?
     var onTestNotifications: (() -> Void)?
+    var onChooseMusic: (() -> Void)?
+    var onResetMusic: (() -> Void)?
+    /// Name of the custom music file, nil when the generated tune is used.
+    var customMusicName: () -> String? = { nil }
     var serverDescription: () -> String = { "" }
 
     init(monitor: StateMonitor) {
@@ -96,6 +100,15 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.addItem(action("Ouvrir dans le navigateur", #selector(openBrowser)))
         menu.addItem(action("Tester les notifications", #selector(testNotifications)))
         menu.addItem(.separator())
+        let musicName = customMusicName()
+        let choose = action("Choisir ta musique…", #selector(chooseMusic))
+        choose.state = musicName != nil ? .on : .off
+        if let n = musicName { choose.toolTip = "Ta musique : \(n)" }
+        menu.addItem(choose)
+        let reset = action("Revenir à la musique générée", #selector(resetMusic))
+        reset.isEnabled = musicName != nil
+        menu.addItem(reset)
+        menu.addItem(.separator())
         menu.addItem(action("Installer les hooks Claude Code…", #selector(installHooks)))
         menu.addItem(action("Désinstaller les hooks Claude Code…", #selector(uninstallHooks)))
         menu.addItem(.separator())
@@ -125,6 +138,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     @objc private func installHooks() { onInstallHooks?() }
     @objc private func uninstallHooks() { onUninstallHooks?() }
     @objc private func testNotifications() { onTestNotifications?() }
+    @objc private func chooseMusic() { onChooseMusic?() }
+    @objc private func resetMusic() { onResetMusic?() }
 
     /// 16x13 pixel template icon: the ring above the fire mountain.
     static func icon() -> NSImage {

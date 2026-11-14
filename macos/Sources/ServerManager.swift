@@ -13,6 +13,10 @@ final class ServerManager {
 
     /// Called on the main queue when the server cannot be started because Node is missing.
     var onNodeMissing: (() -> Void)?
+    /// Path of the custom music, given to the embedded server at launch (LOTR_USER_MUSIC).
+    var userMusicPath: () -> String? = { nil }
+    /// Shared secret with the embedded server, only for POST /user-music (never given to the page).
+    private let token: String = (0..<2).map { _ in UUID().uuidString.replacingOccurrences(of: "-", with: "") }.joined()
 
     var isChildRunning: Bool { process?.isRunning ?? false }
 
@@ -71,6 +75,8 @@ final class ServerManager {
         env["LOTR_PARENT_PID"] = String(ProcessInfo.processInfo.processIdentifier)
         env["PATH"] = node.deletingLastPathComponent().path + ":/usr/bin:/bin:/usr/sbin:/sbin"
         env.removeValue(forKey: "DEMO")
+        env["LOTR_APP_TOKEN"] = token
+        if let music = userMusicPath() { env["LOTR_USER_MUSIC"] = music } else { env.removeValue(forKey: "LOTR_USER_MUSIC") }
         p.environment = env
         let handle = logHandle()
         p.standardOutput = handle
@@ -93,6 +99,30 @@ final class ServerManager {
             lastError = "Impossible de lancer Node : \(error.localizedDescription)"
             log(lastError!)
         }
+    }
+
+    /// Registers (or clears, path nil) the custom music on the embedded server. Completion on the main
+    /// queue: nil on success, else an error message. An external server has no token and refuses it.
+    func setUserMusic(_ path: String?, completion: @escaping (String?) -> Void) {
+        guard mode == .embedded else {
+            completion(path == nil ? nil : "La carte utilise un serveur déjà lancé sur le port \(AppPaths.port) (par exemple npm start) : ta musique ne peut être servie que par le serveur intégré de l'app. Arrête ce serveur puis relance l'app.")
+            return
+        }
+        var req = URLRequest(url: AppPaths.url("/user-music"))
+        req.httpMethod = "POST"
+        req.timeoutInterval = 3
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(token, forHTTPHeaderField: "X-LOTR-Token")
+        let body: [String: Any] = ["path": path.map { $0 as Any } ?? NSNull()]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        URLSession.shared.dataTask(with: req) { _, resp, err in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            DispatchQueue.main.async {
+                if code == 200 { completion(nil) }
+                else if code == 422 { completion("Ce fichier n'est pas lisible comme musique (formats : mp3, m4a, aac, wav, aiff).") }
+                else { completion("Le serveur de la carte n'a pas accepté la musique (\(err?.localizedDescription ?? "code \(code)")).") }
+            }
+        }.resume()
     }
 
     /// Stops the child server (SIGTERM, then SIGKILL after 1.5 s). Never touches an external server.

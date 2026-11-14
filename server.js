@@ -8,6 +8,9 @@
  *   GET  /state        JSON snapshot
  *   POST /demo/start   start demo mode
  *   POST /demo/stop    stop demo mode
+ *   GET  /user-music   the local audio file chosen in the macOS app (Range requests), 404 otherwise
+ *   GET  /user-music/info   { available, name, version }
+ *   POST /user-music   { path } from the macOS app only (X-LOTR-Token = LOTR_APP_TOKEN)
  *   GET  /*            static files from public/
  *
  * Zero dependency, listens on 127.0.0.1 only.
@@ -18,6 +21,7 @@ const path = require('node:path');
 const { Store } = require('./lib/store');
 const { Demo } = require('./lib/demo');
 const { TranscriptReader } = require('./lib/transcripts');
+const { UserMusic, tokenOk } = require('./lib/usermusic');
 
 const PORT = Number(process.env.PORT) || 4777;
 const HOST = '127.0.0.1';
@@ -41,6 +45,8 @@ const MIME = {
 const store = new Store({ file: EVENTS_FILE });
 const demo = new Demo(store);
 const clients = new Set();
+// Only the path given by the app (env at launch, or authenticated POST): never a path from a URL.
+const userMusic = new UserMusic(process.env.LOTR_USER_MUSIC || null, process.env.LOTR_APP_TOKEN || '');
 
 store.loadUsageState();
 const loaded = store.load();
@@ -190,12 +196,27 @@ async function handle(req, res) {
       demo.stop();
       return send(res, 200, { demo: false });
     }
+    if (p === '/user-music') {
+      if (!tokenOk(userMusic.token, req.headers['x-lotr-token'])) return send(res, 403, { error: 'forbidden' });
+      const { tooLarge, text } = await readBody(req);
+      if (tooLarge) return send(res, 413, { error: 'payload too large' });
+      let body;
+      try {
+        body = JSON.parse(text || '{}');
+      } catch {
+        return send(res, 400, { error: 'invalid json' });
+      }
+      if (!userMusic.set(body && typeof body.path === 'string' ? body.path : null)) return send(res, 422, { error: 'unsupported file' });
+      return send(res, 200, { ok: true, ...userMusic.info() });
+    }
     return send(res, 404, { error: 'not found' });
   }
 
   if (req.method === 'GET' || req.method === 'HEAD') {
     if (p === '/stream') return openStream(req, res);
     if (p === '/state') return send(res, 200, store.snapshot());
+    if (p === '/user-music') return userMusic.serve(req, res);
+    if (p === '/user-music/info') return send(res, 200, userMusic.info());
     if (p === '/health') return send(res, 200, { ok: true, demo: demo.running, agents: store.agents.size });
     return serveStatic(req, res, p);
   }

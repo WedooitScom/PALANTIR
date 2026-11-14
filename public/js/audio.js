@@ -912,6 +912,8 @@
       customPlaying: !!(custom.el && !custom.el.paused),
       notes: music.notes,
       sfx: Object.values(sfxState.counts).reduce((p, q) => p + q, 0),
+      muted,
+      masterGain: bus ? Math.round(bus.master.gain.value * 100) / 100 : null,
     };
   }
 

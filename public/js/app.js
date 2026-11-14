@@ -1405,12 +1405,14 @@
       const st = Sound.status();
       sendNative({ type: 'log', message: `page: audio ${why} : contexte ${st.state}, geste ${st.hadGesture ? 'oui' : 'non'}, `
         + `t=${st.currentTime.toFixed(1)} s, page ${st.visibility}, musique ${st.musicWanted ? 'on' : 'off'} (${st.source}`
-        + `${st.generatedPlaying ? ', générée en cours' : ''}${st.customPlaying ? ', perso en cours' : ''}), notes ${st.notes}, effets ${st.sfx}` });
+        + `${st.generatedPlaying ? ', générée en cours' : ''}${st.customPlaying ? ', perso en cours' : ''}), notes ${st.notes}, effets ${st.sfx}`
+        + `, coupé ${st.muted ? 'oui' : 'non'}, gain général ${st.masterGain}` });
     };
     audioLine('au chargement');
     setTimeout(() => audioLine('après 3 s'), 3000);
     Sound.onStateChange(() => audioLine('changement d\'état'));
     if (window.LOTRNative.audioDebug) setInterval(() => audioLine('suivi'), 20000);
+    for (const id of ['#btnSound', '#btnMusic']) $(id).addEventListener('click', () => setTimeout(() => audioLine('après clic ' + id), 600));
     if (window.LOTRNative.audioDebug === 'music') Sound.music.start(); // diagnostic launch only, prefs untouched
   }
 
@@ -1474,6 +1476,12 @@
   function openLangMenu() {
     renderLangMenu();
     langMenu.hidden = false;
+    // Keep the whole menu inside the window (long names in the invented languages).
+    langMenu.style.left = '0px';
+    langMenu.style.right = 'auto';
+    const r = langMenu.getBoundingClientRect();
+    const over = r.right - (document.documentElement.clientWidth - 8);
+    if (over > 0) langMenu.style.left = `${-Math.min(over, r.left - 8)}px`;
     langBtn.setAttribute('aria-expanded', 'true');
     const cur = langMenu.querySelector('[aria-checked="true"]');
     if (cur) cur.focus();

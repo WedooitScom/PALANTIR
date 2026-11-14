@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carte de la Terre du Milieu</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%232a1d14'/%3E%3Cpath d='M3 12h10L8 3z' fill='%23c9c3b6'/%3E%3Cpath d='M6.5 6h3L8 3z' fill='%23fff'/%3E%3Crect x='7' y='12' width='2' height='2' fill='%23ff8c1a'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>Carte de la Terre du Milieu</h1>
+    </div>
+    <div id="summary" class="summary" aria-label="Résumé"></div>
+    <div class="actions">
+      <button id="btnDemo" class="btn" type="button">Mode démo : OFF</button>
+      <button id="btnSound" class="btn icon" type="button" title="Son des alertes">🔔</button>
+      <button id="btnNotif" class="btn icon" type="button" title="Notifications du navigateur">📣</button>
+      <button id="btnNight" class="btn icon" type="button" title="Cycle jour/nuit">🌙</button>
+      <button id="btnSide" class="btn icon" type="button" title="Afficher / masquer la chronique">📜</button>
+      <span id="conn" class="conn">●</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <div id="mapWrap">
+      <canvas id="map" aria-label="Carte des agents"></canvas>
+      <div id="alerts" class="alerts" aria-live="assertive"></div>
+      <div id="tooltip" class="tooltip" hidden></div>
+      <div id="empty" class="empty-hint panel">
+        <b>Aucune compagnie en route.</b><br>
+        Active le <em>Mode démo</em> ou installe les hooks
+        (<code>npm run install-hooks</code>) puis lance une session Claude Code.
+      </div>
+
+      <section id="legend" class="legend panel">
+        <button id="legendToggle" class="legend-toggle" type="button">Légende ▾</button>
+        <ul id="legendList"></ul>
+      </section>
+
+      <section id="detail" class="detail panel" hidden>
+        <header class="detail-head">
+          <canvas id="detailIcon" class="detail-icon"></canvas>
+          <div id="detailHead" class="detail-title"></div>
+          <button id="detailClose" class="btn small ghost" type="button" title="Fermer">×</button>
+        </header>
+        <div id="detailBody" class="detail-body"></div>
+      </section>
+    </div>
+
+    <aside id="side" class="side panel">
+      <nav class="tabs">
+        <button class="tab active" data-tab="chronicle" type="button">Chronique</button>
+        <button class="tab" data-tab="council" type="button">Conseil d'Elrond</button>
+      </nav>
+      <label class="filter">Filtre :
+        <select id="filter"><option value="">Toutes les compagnies</option></select>
+      </label>
+      <ol id="chronicle" class="feed"></ol>
+      <ol id="council" class="feed council" hidden></ol>
+    </aside>
+  </main>
+
+  <script src="js/sprites.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -101,3 +101,7 @@ voir le détail (dossier, dernier prompt, 15 dernières actions, sous-agents).
   (les événements de démo ne sont pas persistés).
 - Une session inactive depuis 30 min passe « partie », puis disparaît après 2 h.
 - Le cycle jour/nuit suit l'heure locale (bouton 🌙 pour le couper, `?night=1` pour forcer la nuit).
+- Bouton 🔔 : bip des alertes. Bouton 🎵 : musique d'ambiance originale (gigue celtique 8-bit),
+  générée en WebAudio, coupée par défaut ; tant qu'un agent attend, elle passe en mode « ombre »
+  (tambour grave, bourdon assombri, flûte qui se tait). Dans un navigateur, le son ne démarre
+  qu'après la première interaction avec la page ; dans l'app macOS, il marche directement.

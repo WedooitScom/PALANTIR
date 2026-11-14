@@ -37,7 +37,7 @@
   };
 
   const prefs = (() => {
-    const d = { sound: true, night: true, legend: true, side: true };
+    const d = { sound: true, music: false, night: true, legend: true, side: true };
     try {
       return Object.assign(d, JSON.parse(localStorage.getItem('lotr-prefs') || '{}'));
     } catch {
@@ -189,35 +189,9 @@
 
   // ------------------------------------------------------------ alerts
 
-  let audio = null;
-  function ensureAudio() {
-    if (audio || !window.AudioContext) return;
-    try {
-      audio = new AudioContext();
-    } catch {
-      audio = null;
-    }
-  }
-  document.addEventListener('pointerdown', ensureAudio, { once: true });
+  const Sound = window.LOTRAudio;
   function beep() {
-    if (!prefs.sound || !audio) return;
-    try {
-      const t0 = audio.currentTime;
-      [660, 880].forEach((f, i) => {
-        const o = audio.createOscillator();
-        const g = audio.createGain();
-        o.type = 'square';
-        o.frequency.value = f;
-        g.gain.setValueAtTime(0.0001, t0 + i * 0.14);
-        g.gain.exponentialRampToValueAtTime(0.04, t0 + i * 0.14 + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.14 + 0.12);
-        o.connect(g).connect(audio.destination);
-        o.start(t0 + i * 0.14);
-        o.stop(t0 + i * 0.14 + 0.13);
-      });
-    } catch {
-      /* ignore */
-    }
+    if (prefs.sound) Sound.beep();
   }
 
   function notify(a) {
@@ -245,6 +219,7 @@
       if (!state.knownWaiting.has(key)) notify(a);
     }
     state.knownWaiting = keys;
+    Sound.music.setTension(waiting.length > 0);
     for (const k of [...state.dismissed]) if (!keys.has(k)) state.dismissed.delete(k);
 
     // Reconcile toasts in place (keeps buttons clickable while "depuis" ticks).
@@ -580,11 +555,23 @@
   $('#btnSound').onclick = () => {
     prefs.sound = !prefs.sound;
     savePrefs();
-    ensureAudio();
     applySound();
-    if (prefs.sound) beep();
+    beep();
   };
   applySound();
+
+  function applyMusic() {
+    $('#btnMusic').textContent = prefs.music ? '🎵' : '🔇';
+    $('#btnMusic').title = prefs.music ? "Musique d'ambiance : activée" : "Musique d'ambiance : coupée";
+    if (prefs.music) Sound.music.start();
+    else Sound.music.stop();
+  }
+  $('#btnMusic').onclick = () => {
+    prefs.music = !prefs.music;
+    savePrefs();
+    applyMusic();
+  };
+  applyMusic();
 
   function applyNotif() {
     const b = $('#btnNotif');

@@ -29,6 +29,45 @@ struct AgentInfo {
     var isWaiting: Bool { status == "waiting" }
 }
 
+/// One usage limit window (5 h or 7 days): used % and reset time (epoch seconds).
+struct LimitInfo: Equatable {
+    let pct: Double
+    let resetsAt: Double?
+
+    init?(_ v: Any?) {
+        guard let d = v as? [String: Any], let p = (d["pct"] as? NSNumber)?.doubleValue else { return nil }
+        pct = p
+        resetsAt = (d["resetsAt"] as? NSNumber)?.doubleValue
+    }
+
+    /// The window is over (the server has not received a newer reading yet).
+    var expired: Bool { resetsAt.map { $0 <= Date().timeIntervalSince1970 } ?? false }
+}
+
+/// Claude usage as sent by the server (`usage` in the snapshot and `usage` events).
+/// Real values win; demo values are only used when there are no real ones.
+struct UsageInfo {
+    var five: LimitInfo?
+    var seven: LimitInfo?
+    var todayTokens: Double?
+    var todayCost: Double?
+    var demo = false
+
+    init?(_ v: Any?) {
+        guard let d = v as? [String: Any] else { return nil }
+        five = LimitInfo(d["five"])
+        seven = LimitInfo(d["seven"])
+        demo = d["demo"] as? Bool ?? false
+        if let today = d["today"] as? [String: Any] {
+            todayTokens = ((today["tokens"] as? [String: Any])?["total"] as? NSNumber)?.doubleValue
+            todayCost = (today["costUsd"] as? NSNumber)?.doubleValue
+        }
+        if five == nil && seven == nil && todayTokens == nil && todayCost == nil { return nil }
+    }
+
+    var hasLimits: Bool { five != nil || seven != nil }
+}
+
 /// Subscribes to /stream (Server-Sent Events) and keeps a live list of agents.
 /// Reconnects automatically every 2 s while the server is unreachable.
 final class StateMonitor: NSObject, URLSessionDataDelegate {
@@ -40,6 +79,21 @@ final class StateMonitor: NSObject, URLSessionDataDelegate {
     var onChange: (() -> Void)?
     /// Called on the main queue when an agent starts waiting (once per wait).
     var onNewWaiting: ((AgentInfo) -> Void)?
+    /// Called on the main queue when the real 5 h limit crosses 80 % or 95 % (once per level and window).
+    var onLimitCrossed: ((Int, LimitInfo) -> Void)?
+
+    private(set) var realUsage: UsageInfo?
+    private(set) var demoUsage: UsageInfo?
+    /// What to display: limits from the real usage if any, otherwise from the demo.
+    var usage: UsageInfo? {
+        if let r = realUsage, r.hasLimits { return r }
+        if let d = demoUsage, d.hasLimits { return d }
+        return realUsage ?? demoUsage
+    }
+    private var limitWindow: Double?
+    private var limitNotified = Set<Int>()
+    private var limitPrimed = false
+    static let limitLevels = [80, 95]
 
     private var session: URLSession!
     private var task: URLSessionDataTask?
@@ -141,6 +195,7 @@ final class StateMonitor: NSObject, URLSessionDataDelegate {
             demo = obj["demo"] as? Bool ?? false
             checkWaiting(Array(next.values))
             primed = true
+            applyUsage(obj["usage"])
         case "agent":
             guard let a = AgentInfo(obj) else { return }
             agents[a.id] = a
@@ -149,10 +204,37 @@ final class StateMonitor: NSObject, URLSessionDataDelegate {
             if let id = obj["id"] as? String { agents.removeValue(forKey: id) }
         case "demo":
             demo = obj["on"] as? Bool ?? demo
+        case "usage":
+            applyUsage(obj)
         default:
             return // log / fx: nothing to do natively
         }
         onChange?()
+    }
+
+    private func applyUsage(_ v: Any?) {
+        let d = v as? [String: Any]
+        realUsage = UsageInfo(d?["real"])
+        demoUsage = UsageInfo(d?["demo"])
+        checkLimits(realUsage?.five)
+    }
+
+    /// 80 % / 95 % of the real 5 h limit, once per level and window. Levels already passed when the
+    /// app first sees the window are not notified.
+    private func checkLimits(_ five: LimitInfo?) {
+        guard let five else { return }
+        if let r = five.resetsAt {
+            if let w = limitWindow, r > w + 120 {
+                limitNotified.removeAll()
+            }
+            if limitWindow == nil || r > limitWindow! + 120 { limitWindow = r }
+        }
+        var crossed: Int?
+        for level in StateMonitor.limitLevels where five.pct >= Double(level) {
+            if limitNotified.insert(level).inserted { crossed = level }
+        }
+        if let level = crossed, limitPrimed { onLimitCrossed?(level, five) }
+        limitPrimed = true
     }
 
     /// Notifies each wait once (keyed by agent + start time). The waits already present when the app

@@ -17,6 +17,16 @@
       <h1>Carte de la Terre du Milieu</h1>
     </div>
     <div id="summary" class="summary" aria-label="Résumé"></div>
+    <div id="reserves" class="reserves" aria-label="Réserves du royaume">
+      <span class="reserves-title">Réserves du royaume</span>
+      <div class="gauge" id="gFive" data-name="Lembas">
+        <span class="g-name">Lembas</span><span class="g-bar"><span class="g-fill"></span></span><span class="g-val"></span>
+      </div>
+      <div class="gauge" id="gSeven" data-name="Greniers">
+        <span class="g-name">Greniers</span><span class="g-bar"><span class="g-fill"></span></span><span class="g-val"></span>
+      </div>
+      <span id="reservesWait" class="reserves-wait">en attente de la status line</span>
+    </div>
     <div class="actions">
       <button id="btnDemo" class="btn" type="button">Mode démo : OFF</button>
       <button id="btnSound" class="btn icon" type="button" title="Son des alertes">🔔</button>
@@ -32,6 +42,7 @@
     <div id="mapWrap">
       <canvas id="map" aria-label="Carte des agents"></canvas>
       <div id="alerts" class="alerts" aria-live="assertive"></div>
+      <div id="flash" class="flash panel" role="status" aria-live="polite" hidden></div>
       <div id="tooltip" class="tooltip" hidden></div>
       <div id="empty" class="empty-hint panel">
         <b>Aucune compagnie en route.</b><br>

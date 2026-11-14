@@ -40,7 +40,7 @@ echo "==> Copie du serveur Node"
 RES="$APP/Contents/Resources/app"
 cp "$ROOT/server.js" "$ROOT/package.json" "$RES/"
 cp -R "$ROOT/lib" "$ROOT/public" "$ROOT/hooks" "$ROOT/scripts" "$RES/"
-chmod 755 "$RES/hooks/send-event.sh"
+chmod 755 "$RES/hooks/send-event.sh" "$RES/hooks/send-statusline.sh"
 find "$RES" -name '.DS_Store' -delete
 
 echo "==> Signature ad hoc"

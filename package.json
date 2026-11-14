@@ -10,6 +10,8 @@
     "test": "node --test",
     "install-hooks": "node scripts/install-hooks.mjs",
     "uninstall-hooks": "node scripts/uninstall-hooks.mjs",
+    "install-statusline": "node scripts/install-statusline.mjs",
+    "uninstall-statusline": "node scripts/uninstall-statusline.mjs",
     "build:mac": "bash macos/build.sh"
   },
   "engines": {

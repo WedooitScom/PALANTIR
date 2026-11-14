@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu.onOpenBrowser = { NSWorkspace.shared.open(AppPaths.baseURL) }
         statusMenu.onInstallHooks = { [weak self] in self?.runHooksScript(install: true) }
         statusMenu.onUninstallHooks = { [weak self] in self?.runHooksScript(install: false) }
+        statusMenu.onTestNotifications = { [weak self] in self?.testNotifications() }
         statusMenu.serverDescription = { [weak self] in
             switch self?.server.mode {
             case .external: return "Serveur existant sur le port \(AppPaths.port)"
@@ -33,6 +34,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         monitor.onChange = { [weak self] in self?.stateChanged() }
         monitor.onNewWaiting = { [weak self] agent in self?.notifier.notifyWaiting(agent) }
+        monitor.onLimitCrossed = { [weak self] level, limit in self?.notifier.notifyLimit(level: level, limit: limit) }
+        window.onNotifMessage = { [weak self] action, reply in
+            guard let self else { return }
+            if action == "request" {
+                self.notifier.requestOrTest { state, tested in
+                    self.server.log("notifications : bouton 📣 -> état \(state)\(tested ? ", test envoyé" : "")")
+                    reply(["type": "notif", "action": "request", "state": state, "tested": tested])
+                }
+            } else {
+                self.notifier.status { state in reply(["type": "notif", "action": "status", "state": state]) }
+            }
+        }
+        window.onPageLog = { [weak self] line in self?.server.log(line) }
+        // Keeps the "5h 21%" title right when a window expires without new data.
+        Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.statusMenu.refresh() }
         notifier.onOpen = { [weak self] in self?.window.show() }
         notifier.setUp()
 
@@ -74,6 +90,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let demo = obj?["demo"] as? Bool { self?.monitor.setDemo(demo) }
             }
         }.resume()
+    }
+
+    /// Menu « Tester les notifications »: same logic as the 📣 button of the map.
+    private func testNotifications() {
+        notifier.requestOrTest { [weak self] state, tested in
+            guard let self else { return }
+            self.server.log("notifications : menu -> état \(state)\(tested ? ", test envoyé" : "")")
+            self.window.sendToPage(["type": "notif", "action": "status", "state": state])
+            if state == "denied" {
+                let alert = NSAlert()
+                alert.messageText = "Notifications refusées"
+                alert.informativeText = "macOS bloque les notifications de Terre du Milieu. Dans Réglages Système > Notifications (qui viennent de s'ouvrir), choisis Terre du Milieu et active « Autoriser les notifications »."
+                alert.addButton(withTitle: "OK")
+                NSApp.activate(ignoringOtherApps: true)
+                alert.runModal()
+            } else if !tested {
+                let alert = NSAlert()
+                alert.messageText = "Notifications non autorisées"
+                alert.informativeText = "L'autorisation n'a pas été accordée (état : \(state)). Réessaie depuis ce menu."
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            }
+        }
     }
 
     private func alertNodeMissing() {

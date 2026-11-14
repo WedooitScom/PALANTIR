@@ -13,6 +13,10 @@ export const SOURCE_SCRIPT = path.join(ROOT, 'hooks', 'send-event.sh');
 export const HOOK_DIR = process.env.LOTR_HOOK_DIR || '';
 export const SCRIPT = HOOK_DIR ? path.join(path.resolve(HOOK_DIR), 'send-event.sh') : SOURCE_SCRIPT;
 export const MARKER = 'lotr-map-hook';
+// Status line forwarder (scripts/install-statusline.mjs), installed next to the hook script.
+export const STATUSLINE_SOURCE = path.join(ROOT, 'hooks', 'send-statusline.sh');
+export const STATUSLINE_SCRIPT = HOOK_DIR ? path.join(path.resolve(HOOK_DIR), 'send-statusline.sh') : STATUSLINE_SOURCE;
+export const STATUSLINE_MARKER = 'lotr-map-statusline';
 // CLAUDE_SETTINGS lets you target another file (handy for testing).
 export const SETTINGS = process.env.CLAUDE_SETTINGS || path.join(os.homedir(), '.claude', 'settings.json');
 export const BACKUP = SETTINGS + '.bak-lotr';

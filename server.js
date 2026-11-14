@@ -3,6 +3,7 @@
  * Carte de la Terre du Milieu — local server.
  *
  *   POST /event        raw Claude Code hook payload (JSON) -> state update
+ *   POST /statusline   raw Claude Code status line payload (JSON) -> usage (limits, context, cost)
  *   GET  /stream       Server-Sent Events (snapshot then incremental events)
  *   GET  /state        JSON snapshot
  *   POST /demo/start   start demo mode
@@ -16,6 +17,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Store } = require('./lib/store');
 const { Demo } = require('./lib/demo');
+const { TranscriptReader } = require('./lib/transcripts');
 
 const PORT = Number(process.env.PORT) || 4777;
 const HOST = '127.0.0.1';
@@ -40,8 +42,11 @@ const store = new Store({ file: EVENTS_FILE });
 const demo = new Demo(store);
 const clients = new Set();
 
+store.loadUsageState();
 const loaded = store.load();
 if (loaded) console.log(`[lotr] ${loaded} événements rechargés depuis ${EVENTS_FILE}`);
+// Token usage from the transcripts (only files under ~/.claude/projects, read incrementally).
+store.attachTranscripts(new TranscriptReader({ onUsage: (id, delta, model, days) => store.addTokens(id, delta, model, days) }));
 
 store.on('broadcast', (type, data) => {
   let msg;
@@ -158,6 +163,23 @@ async function handle(req, res) {
       }
       return send(res, 200, { ok: true });
     }
+    if (p === '/statusline') {
+      const { tooLarge, text } = await readBody(req);
+      if (tooLarge) return send(res, 413, { error: 'payload too large' });
+      let raw;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        return send(res, 400, { error: 'invalid json' });
+      }
+      try {
+        store.ingestStatusline(raw);
+      } catch (e) {
+        console.warn('[lotr] status line ignorée :', e && e.message);
+        return send(res, 200, { ok: false });
+      }
+      return send(res, 200, { ok: true });
+    }
     if (p === '/demo/start') {
       await readBody(req);
       demo.start();
@@ -214,6 +236,8 @@ setInterval(() => {
 
 // Inactive sessions -> done after 30 min, removed after 2 h.
 setInterval(() => store.sweep(Date.now()), 30000).unref();
+// Catch up on transcripts of live sessions even without hook events (throttled per session).
+setInterval(() => store.pollTranscripts(), 15000).unref();
 
 // Never crash on an unexpected error: this is a background companion tool.
 process.on('uncaughtException', (e) => console.error('[lotr] exception non gérée :', e && e.stack));

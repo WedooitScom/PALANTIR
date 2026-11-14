@@ -1,9 +1,18 @@
 import AppKit
 import WebKit
 
+/// Forwards page messages without the user content controller retaining the window controller.
+private final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
+    weak var target: WKScriptMessageHandler?
+    init(_ target: WKScriptMessageHandler) { self.target = target }
+    func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(c, didReceive: message)
+    }
+}
+
 /// The map window: a WKWebView on http://127.0.0.1:<port>, with a parchment waiting screen
 /// (and a retry loop) until the server answers. Closing it only hides it.
-final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWindowDelegate {
+final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWindowDelegate, WKScriptMessageHandler {
     private let webView: WKWebView
     private var retryTimer: Timer?
     private var showingMap = false
@@ -11,11 +20,21 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
     var onRetry: (() -> Void)?
     /// Text shown under the waiting title (error, missing Node…).
     var statusText: () -> String? = { nil }
+    /// Page -> native bridge (`window.webkit.messageHandlers.lotr`): notification button.
+    /// The closure gets the action ("status" | "request") and a reply callback.
+    var onNotifMessage: ((String, @escaping ([String: Any]) -> Void) -> Void)?
+    /// Page -> native log line (written to server.log).
+    var onPageLog: ((String) -> Void)?
 
     init() {
         let config = WKWebViewConfiguration()
         config.mediaTypesRequiringUserActionForPlayback = [] // let the map play its sounds
         config.websiteDataStore = .default()
+        // Tells the page it runs inside the app: native notifications replace the Web ones.
+        let marker = WKUserScript(source: "window.LOTRNative = Object.freeze({ app: true, version: 1 });",
+                                  injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        config.userContentController.addUserScript(marker)
+        let ucc = config.userContentController
         webView = WKWebView(frame: .zero, configuration: config)
         webView.allowsMagnification = true
         webView.setValue(false, forKey: "drawsBackground")
@@ -35,6 +54,32 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
         super.init(window: window)
         window.delegate = self
         webView.navigationDelegate = self
+        ucc.add(WeakScriptHandler(self), name: "lotr")
+    }
+
+    // MARK: - page bridge
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        // Only the local map may talk to the app.
+        guard message.frameInfo.isMainFrame, let host = message.frameInfo.request.url?.host,
+              host == "127.0.0.1" || host == "localhost",
+              let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+        switch type {
+        case "notif":
+            let action = (body["action"] as? String) == "request" ? "request" : "status"
+            onNotifMessage?(action) { [weak self] reply in self?.sendToPage(reply) }
+        case "log":
+            if let m = body["message"] as? String { onPageLog?(String(m.prefix(300))) }
+        default:
+            break
+        }
+    }
+
+    /// Native -> page: calls window.LOTRNativeReply(<json>).
+    func sendToPage(_ payload: [String: Any]) {
+        guard showingMap, let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.LOTRNativeReply && window.LOTRNativeReply(\(json))", completionHandler: nil)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }

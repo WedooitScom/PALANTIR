@@ -46,6 +46,26 @@
   }
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+  // Model badge: letter + colour per family, full name in the tooltip.
+  const MODEL_FAMILIES = [
+    [/fable/i, 'F', '#2f8f83', 'Fable'],
+    [/opus/i, 'O', '#b5502a', 'Opus'],
+    [/sonnet/i, 'S', '#3f6fb6', 'Sonnet'],
+    [/haiku/i, 'H', '#5f8a3e', 'Haiku'],
+  ];
+  function modelInfo(a) {
+    const m = a && a.usage && a.usage.model;
+    const id = (m && m.id) || (a && a.tokens && a.tokens.model) || '';
+    const name = (m && m.name) || '';
+    const key = name || id;
+    if (!key) return null;
+    const fam = MODEL_FAMILIES.find((f) => f[0].test(key) || f[0].test(id));
+    const full = name && id && name !== id ? `${name} (${id})` : key;
+    if (fam) return { letter: fam[1], color: fam[2], family: fam[3], full };
+    return { letter: (key.replace(/^claude-/i, '')[0] || '?').toUpperCase(), color: '#7a6a55', family: key, full };
+  }
+  const STARVED_PCT = 100;
+
   class Scene {
     constructor(canvas, opts) {
       this.canvas = canvas;
@@ -69,6 +89,8 @@
       this.startT = null;
       this.warm = false;
       this.active = new Set();
+      this.usage = null; // { fivePct } set by the app
+      this.hud = []; // screen-space hit boxes (lanterns, model badges)
 
       this.resize();
       if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
@@ -251,7 +273,8 @@
         const work = workFor(a);
         const avatar = roleAvatar(a.role);
         let wr = null;
-        if (a.kind === 'session' && ['talking', 'thinking', 'coding', 'running', 'designing'].includes(a.status)) wr = [4, 2];
+        if (this.starved(a)) wr = null;
+        else if (a.kind === 'session' && ['talking', 'thinking', 'coding', 'running', 'designing'].includes(a.status)) wr = [4, 2];
         else if (work === 'scout' && avatar === 'scout') wr = [T.rx * 0.9, T.ry * 0.9];
         if (wr) {
           if (!e.wander || t > e.wanderAt) {
@@ -333,6 +356,7 @@
       M.drawClouds(f, w, t, dt);
       const amt = this.forceNight ? 0.38 : this.nightEnabled ? M.nightAmount(new Date()) : 0;
       M.drawNight(f, w, amt, t, lights);
+      this.drawShadow(f, t);
 
       // Blit.
       const c = this.ctx;
@@ -344,17 +368,60 @@
       this.drawOverlay(c, t);
     }
 
+    /** 5 h limit used up: active characters (not those waiting for you) camp by a fire. */
+    starved(a) {
+      return !!(this.usage && this.usage.fivePct >= STARVED_PCT) && !['waiting', 'done', 'idle'].includes(a.status);
+    }
+
+    /** Shadow of Mordor: from 80 % of the 5 h limit, a dark red veil spreads from the east. */
+    drawShadow(f, t) {
+      const p = this.usage ? this.usage.fivePct : 0;
+      if (!(p >= 80)) return;
+      const k = clamp((p - 80) / 20, 0, 1);
+      const reach = Math.round(W * (0.2 + 0.6 * k));
+      const x0 = W - reach;
+      if (!this.shadowGrad || this.shadowKey !== reach) {
+        const g = f.createLinearGradient(x0 - 10, 0, W, 0);
+        g.addColorStop(0, 'rgba(60,8,10,0)');
+        g.addColorStop(0.12, `rgba(70,10,12,${0.28 + 0.14 * k})`);
+        g.addColorStop(1, `rgba(90,12,8,${0.5 + 0.2 * k})`);
+        this.shadowGrad = g;
+        this.shadowKey = reach;
+      }
+      f.fillStyle = this.shadowGrad;
+      for (let y = 0; y < H; y += 2) {
+        // Ragged, slowly breathing front.
+        const off = Math.round(Math.sin(y * 0.11 + t * 0.7) * 3 + M.hash2(0, y >> 2, 91) * 8 - 10);
+        const x = Math.max(0, x0 + off);
+        f.fillRect(x, y, W - x, 2);
+      }
+      // Embers drifting in the shadow.
+      if (Math.random() < 0.25 + k * 0.5) {
+        this.particles.push({ x: x0 + Math.random() * reach, y: H - Math.random() * H * 0.6, vx: -2 - Math.random() * 3, vy: -3 - Math.random() * 3, g: 0, life: 0, max: 1.2, color: 'rgba(255,90,40,0.8)' });
+      }
+    }
+
     queueEntity(e, t, dt, draws, lights) {
       const f = this.f;
       const a = e.agent;
       const fx = Math.round(e.x), fy = Math.round(e.y);
       const alpha = Math.max(0, Math.min(1, e.alpha));
       const avatar = roleAvatar(a.role);
-      const work = e.leaving ? null : workFor(a);
+      const starved = !e.leaving && this.starved(a);
+      const work = e.leaving || starved ? null : workFor(a);
       const tt = t + e.seed * 10;
       e.helperPos = null;
 
-      if (e.walking || e.leaving) {
+      if (starved && !e.walking) {
+        lights.push([fx + 7, fy - 4]);
+        draws.push({
+          y: fy,
+          fn: () => {
+            S.drawAvatar(f, avatar, fx, fy, tt, { pose: 'sit', alpha });
+            S.drawCampfire(f, fx + 8, fy, tt, alpha);
+          },
+        });
+      } else if (e.walking || e.leaving) {
         draws.push({ y: fy, fn: () => S.drawAvatar(f, avatar, fx, fy, tt, { walking: e.walking, flip: e.facing < 0, alpha, loupe: work === 'scout' }) });
       } else if (a.status === 'idle') {
         lights.push([fx + 7, fy - 4]);
@@ -489,6 +556,7 @@
       const u = Math.max(1, Math.round(s / 3));
       const css = s / dpr;
       const placed = [];
+      this.hud = [];
 
       // Territory names.
       c.textAlign = 'center';
@@ -541,6 +609,21 @@
         if (name.length > 22) name = name.slice(0, 21) + '…';
         const r = this.drawBanner(c, X(T.cx), Y(T.cy - 25), name, STATUS[top] || STATUS.idle, top === 'waiting', bannerPx, u, t, dpr);
         placed.push(r);
+        // Lantern (context of the fullest bag here) on the right, model badge on the left.
+        let bag = null;
+        for (const x of sessions) if (x.usage && x.usage.contextPct != null && (!bag || x.usage.contextPct > bag.usage.contextPct)) bag = x;
+        if (bag) {
+          const lu = Math.max(u, Math.round(bannerPx / 8));
+          const lr = this.drawLantern(c, r.x + r.w + 2 * u, r.y, bag.usage.contextPct, lu, t);
+          this.hud.push({ ...lr, hit: { type: 'lantern', id: bag.id, key } });
+          placed.push(lr);
+        }
+        const withModel = sessions.find((x) => modelInfo(x));
+        if (withModel) {
+          const br = this.drawModelBadge(c, r.x - 2 * u, r.y + u, modelInfo(withModel), u, dpr);
+          this.hud.push({ ...br, hit: { type: 'model', id: withModel.id, key } });
+          placed.push(br);
+        }
       }
 
       // Speech bubbles.
@@ -554,9 +637,14 @@
         const hovered = this.hover && this.hover.type === 'agent' && this.hover.id === e.id;
         let text = null;
         let urgent = false;
+        const ctx = a.usage && a.usage.contextPct;
         if (a.status === 'waiting') {
           text = '! ' + ((a.waiting && a.waiting.message) || 'Attend ta réponse');
           urgent = true;
+        } else if (this.starved(a)) {
+          text = 'Plus de lembas…';
+        } else if (a.kind === 'session' && ctx >= 85 && !hovered && Math.floor(now / 1000 + e.seed * 30) % 24 < 4) {
+          text = 'Mon sac est plein !';
         } else if (hovered || (a.status !== 'idle' && a.lastAction && now - a.lastActionAt < (a.kind === 'session' ? 15000 : 9000))) {
           text = a.lastAction || '';
         }
@@ -642,6 +730,71 @@
       return { x: x0 - 5 * u, y: y0 - u, w: w + 10 * u, h: h + bh + 3 * u };
     }
 
+    /** Pixel lantern (screen space). Full and bright when the context is nearly empty. Returns its box. */
+    drawLantern(c, x, y, ctxPct, u, t) {
+      const fill = clamp(1 - (Number(ctxPct) || 0) / 100, 0, 1);
+      const w = 7 * u, h = 12 * u;
+      x = Math.round(x);
+      y = Math.round(y);
+      // Halo, stronger when full, with a slight flicker.
+      const flick = 0.85 + 0.15 * Math.sin(t * 9 + x);
+      if (fill > 0.15) {
+        c.fillStyle = `rgba(255,214,110,${0.22 * fill * flick})`;
+        c.fillRect(x - 3 * u, y + u, w + 6 * u, h + 2 * u);
+        c.fillStyle = `rgba(255,230,150,${0.25 * fill * flick})`;
+        c.fillRect(x - u, y + 3 * u, w + 2 * u, h - 3 * u);
+      }
+      const ink = '#1d140c';
+      // Ring + cap.
+      c.fillStyle = ink;
+      c.fillRect(x + 2 * u, y, 3 * u, u);
+      c.fillRect(x + 2 * u, y, u, 2 * u);
+      c.fillRect(x + 4 * u, y, u, 2 * u);
+      c.fillRect(x, y + 2 * u, w, 2 * u);
+      c.fillStyle = '#6a5a44';
+      c.fillRect(x + u, y + 2 * u, w - 2 * u, u);
+      // Glass.
+      const gx = x + u, gy = y + 4 * u, gw = w - 2 * u, gh = 6 * u;
+      c.fillStyle = ink;
+      c.fillRect(x, gy, w, gh);
+      c.fillStyle = '#2b2a35';
+      c.fillRect(gx, gy, gw, gh);
+      const lit = Math.round(gh * fill / u) * u;
+      if (lit > 0) {
+        c.fillStyle = fill > 0.6 ? '#ffe066' : fill > 0.3 ? '#ffb020' : '#d8641f';
+        c.fillRect(gx, gy + gh - lit, gw, lit);
+        c.fillStyle = `rgba(255,255,240,${0.5 * fill * flick})`;
+        c.fillRect(gx + u, gy + gh - lit, u, Math.max(u, lit - u));
+      }
+      // Bars of the frame + base.
+      c.fillStyle = ink;
+      c.fillRect(x + 3 * u, gy, u, gh);
+      c.fillRect(x, gy + gh, w, 2 * u);
+      c.fillStyle = '#6a5a44';
+      c.fillRect(x + u, gy + gh, w - 2 * u, u);
+      return { x: x - u, y: y - u, w: w + 2 * u, h: h + 2 * u };
+    }
+
+    /** Small model badge (letter on a coloured tile), right edge at x. Returns its box. */
+    drawModelBadge(c, xRight, y, info, u, dpr) {
+      const px = Math.round(14 * dpr);
+      c.font = `${px}px VT323, monospace`;
+      const size = Math.round(Math.max(9 * u, px * 0.9));
+      const x = Math.round(xRight - size);
+      y = Math.round(y);
+      c.fillStyle = '#1d140c';
+      c.fillRect(x - u, y - u, size + 2 * u, size + 2 * u);
+      c.fillStyle = info.color;
+      c.fillRect(x, y, size, size);
+      c.fillStyle = 'rgba(255,255,255,0.25)';
+      c.fillRect(x, y, size, u);
+      c.fillStyle = '#fff8e6';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(info.letter, x + size / 2, y + size / 2 + u * 0.5);
+      return { x: x - u, y: y - u, w: size + 2 * u, h: size + 2 * u };
+    }
+
     drawBubble(c, x, y, w, h, tailX, tailY, text, urgent, u, pad, t) {
       const border = urgent ? (Math.floor(t * 3) % 2 ? '#d8321f' : '#ffb020') : '#3a2614';
       c.fillStyle = border;
@@ -669,6 +822,11 @@
     }
 
     pick(clientX, clientY) {
+      const rect = this.canvas.getBoundingClientRect();
+      const sx = (clientX - rect.left) * this.view.dpr, sy = (clientY - rect.top) * this.view.dpr;
+      for (const b of this.hud) {
+        if (sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h) return b.hit;
+      }
       const { x, y } = this.toWorld(clientX, clientY);
       let best = null;
       let bd = Infinity;
@@ -702,5 +860,5 @@
     }
   }
 
-  window.LOTRScene = { Scene, STATUS, roleAvatar, workFor };
+  window.LOTRScene = { Scene, STATUS, roleAvatar, workFor, modelInfo };
 })();

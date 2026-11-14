@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const { Scene, STATUS, roleAvatar } = window.LOTRScene;
+  const { Scene, STATUS, roleAvatar, modelInfo } = window.LOTRScene;
   const TERR = window.LOTRMap.TERR_BY_KEY;
   const Sprites = window.Sprites;
 
@@ -34,7 +34,10 @@
     detail: null, // { type: 'agent', id } | { type: 'territory', key }
     dismissed: new Set(),
     knownWaiting: new Set(),
+    usage: { real: null, demo: null },
   };
+  // Inside the macOS app (WKUserScript): native notifications replace the Web ones.
+  const NATIVE = !!(window.LOTRNative && window.LOTRNative.app && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lotr);
 
   const prefs = (() => {
     const d = { sound: true, music: false, night: true, legend: true, side: true };
@@ -65,6 +68,50 @@
   function label(a) {
     return a.kind === 'subagent' ? `${a.project} · ${a.subagentType}` : a.project;
   }
+  const dec = (n, d) => n.toFixed(d).replace('.', ',');
+  /** 950 · 1,2 k · 3,4 M · 1,1 G */
+  function fmtTok(n) {
+    n = Number(n) || 0;
+    if (n < 1000) return String(Math.round(n));
+    if (n < 1e6) return `${dec(n / 1e3, n < 1e4 ? 1 : 0)} k`;
+    if (n < 1e9) return `${dec(n / 1e6, n < 1e7 ? 1 : 0)} M`;
+    return `${dec(n / 1e9, 1)} G`;
+  }
+  const fmtUsd = (v) => `${dec(Number(v) || 0, 2)} $`;
+  function fmtDur(ms) {
+    const s = Math.max(0, Math.round((Number(ms) || 0) / 1000));
+    if (s < 60) return `${s} s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} min`;
+    return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+  }
+  /** Countdown to an epoch (seconds): "1 h 26", "12 min", "3 j 4 h". */
+  function fmtLeft(epochS) {
+    const s = Math.round(epochS - Date.now() / 1000);
+    if (s <= 0) return null;
+    if (s < 60) return `${s} s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} h ${String(m % 60).padStart(2, '0')}`;
+    return `${Math.floor(h / 24)} j ${h % 24} h`;
+  }
+  const pctTxt = (p) => `${Math.round(p)} %`;
+  /** Limits to display: the real ones when we have them, otherwise the demo ones (flagged). */
+  function currentLimits() {
+    for (const k of ['real', 'demo']) {
+      const u = state.usage[k];
+      if (u && (u.five || u.seven)) return u;
+    }
+    return null;
+  }
+  function currentToday() {
+    for (const k of ['real', 'demo']) {
+      const u = state.usage[k];
+      if (u && u.today && (u.today.tokens || u.today.costUsd != null)) return u;
+    }
+    return null;
+  }
   function isActive(a) {
     return a.status !== 'done';
   }
@@ -75,7 +122,7 @@
   const scene = new Scene($('#map'), {
     onPick(hit) {
       if (!hit) return closeDetail();
-      if (hit.type === 'agent') openDetail({ type: 'agent', id: hit.id });
+      if (hit.type === 'agent' || hit.type === 'lantern' || hit.type === 'model') openDetail({ type: 'agent', id: hit.id });
       else {
         const s = [...state.agents.values()].find((a) => a.kind === 'session' && isActive(a) && a.territory === hit.key);
         openDetail(s ? { type: 'agent', id: s.id } : { type: 'territory', key: hit.key });
@@ -87,7 +134,17 @@
         return;
       }
       let text = '';
-      if (hit.type === 'agent') {
+      if (hit.type === 'lantern' || hit.type === 'model') {
+        const a = state.agents.get(hit.id);
+        if (!a) return;
+        if (hit.type === 'lantern') {
+          const p = a.usage && a.usage.contextPct;
+          text = `Lanterne de ${a.project} : ${pctTxt(p)} du contexte utilisé\nPleine et vive quand le sac est presque vide, elle faiblit à mesure qu'il se remplit.`;
+        } else {
+          const m = modelInfo(a);
+          text = `Modèle de ${a.project} : ${m ? m.full : 'inconnu'}`;
+        }
+      } else if (hit.type === 'agent') {
         const a = state.agents.get(hit.id);
         if (!a) return;
         text = `${label(a)} — ${ROLE_LABEL[roleAvatar(a.role)]}\n${STATUS_FR[a.status] || a.status}${a.lastAction ? ' · ' + a.lastAction : ''}`;
@@ -136,6 +193,11 @@
     });
     on('log', (entry) => addLog(entry));
     on('fx', (fx) => scene.addFlight(fx));
+    on('usage', (u) => {
+      state.usage = u || { real: null, demo: null };
+      renderReserves();
+      renderSummary();
+    });
     on('demo', (d) => setDemo(d.on));
     es.onopen = () => setConn(true);
     es.onerror = () => setConn(false);
@@ -146,7 +208,9 @@
     for (const a of snap.agents || []) state.agents.set(a.id, a);
     state.chronicle = (snap.chronicle || []).slice(-MAX_FEED);
     state.council = (snap.council || []).slice(-MAX_FEED);
+    state.usage = snap.usage || { real: null, demo: null };
     setDemo(!!snap.demo);
+    renderReserves();
     renderFeeds();
     scheduleUI();
   }
@@ -180,12 +244,73 @@
       ['🔥', count('waiting'), 'en attente'],
     ];
     const box = $('#summary');
-    box.replaceChildren(...chips.map(([icon, n, txt]) => {
+    const nodes = chips.map(([icon, n, txt]) => {
       const c = el('span', 'chip' + (icon === '🔥' && n > 0 ? ' hot' : ''));
       c.append(el('span', 'chip-icon', icon), el('b', null, String(n)), el('span', 'chip-txt', ' ' + txt));
       return c;
-    }));
+    });
+    // Today's usage, all sessions (since local midnight).
+    const u = currentToday();
+    if (u) {
+      const t = u.today;
+      const demo = u.demo ? ' (démo)' : '';
+      if (t.tokens) {
+        const c = el('span', 'chip usage');
+        c.append(el('span', 'chip-icon', '🪙'), el('b', null, fmtTok(t.tokens.total)), el('span', 'chip-txt', ' jetons du jour' + demo));
+        c.title = `Jetons utilisés aujourd'hui, toutes sessions confondues${demo}\n`
+          + `Entrée ${fmtTok(t.tokens.input)} · sortie ${fmtTok(t.tokens.output)}\n`
+          + `Cache créé ${fmtTok(t.tokens.cacheCreation)} · cache lu ${fmtTok(t.tokens.cacheRead)}\n(d'après les transcripts de Claude Code)`;
+        nodes.push(c);
+      }
+      if (t.costUsd != null) {
+        const c = el('span', 'chip usage');
+        c.append(el('span', 'chip-icon', '💰'), el('b', null, fmtUsd(t.costUsd)), el('span', 'chip-txt', ' aujourd\'hui' + demo));
+        c.title = `Coût cumulé des ${t.costSessions} session(s) vues aujourd'hui, d'après Claude Code${demo}`;
+        nodes.push(c);
+      }
+    }
+    box.replaceChildren(...nodes);
   }
+
+  // ------------------------------------------------------------ reserves (5 h / 7 day limits)
+
+  const GAUGES = {
+    five: { node: $('#gFive'), name: 'Lembas', what: 'la limite d\'usage de Claude sur 5 heures glissantes' },
+    seven: { node: $('#gSeven'), name: 'Greniers', what: 'la limite d\'usage de Claude sur 7 jours' },
+  };
+  function renderReserves() {
+    const box = $('#reserves');
+    const u = currentLimits();
+    box.classList.toggle('demo', !!(u && u.demo));
+    if (!u) {
+      box.setAttribute('data-empty', '');
+      box.title = 'Réserves du royaume : en attente de la status line de Claude Code.\nInstalle-la avec « npm run install-statusline ».';
+      scene.usage = null;
+      return;
+    }
+    box.removeAttribute('data-empty');
+    box.title = '';
+    for (const [k, g] of Object.entries(GAUGES)) {
+      const w = u[k];
+      g.node.hidden = !w || w.pct == null;
+      if (g.node.hidden) continue;
+      const pct = Math.max(0, w.pct);
+      const left = w.resetsAt ? fmtLeft(w.resetsAt) : null;
+      const expired = w.resetsAt && !left;
+      g.node.classList.toggle('warn', !expired && pct >= 70 && pct < 90);
+      g.node.classList.toggle('crit', !expired && pct >= 90);
+      g.node.querySelector('.g-fill').style.width = (expired ? 0 : Math.min(100, pct)) + '%';
+      g.node.querySelector('.g-val').textContent = expired ? 'reconstituées' : `${pctTxt(pct)}${left ? ' · ' + left : ''}`;
+      const at = w.resetsAt ? new Date(w.resetsAt * 1000).toLocaleString('fr-FR', { weekday: k === 'seven' ? 'short' : undefined, hour: '2-digit', minute: '2-digit' }) : null;
+      g.node.title = `${g.name} : ${g.what}.\n`
+        + (expired ? 'La fenêtre est écoulée : les réserves sont reconstituées (en attente d\'une nouvelle mesure).'
+          : `${pctTxt(pct)} utilisés${left ? ` — reset dans ${left} (à ${at})` : ''}.`)
+        + '\nVert, puis jaune à 70 %, rouge à 90 %. Source : status line de Claude Code' + (u.demo ? ' (valeurs de démo).' : '.');
+    }
+    const five = u.five && u.five.pct != null && !(u.five.resetsAt && !fmtLeft(u.five.resetsAt)) ? u.five.pct : 0;
+    scene.usage = { fivePct: five };
+  }
+  setInterval(renderReserves, 1000);
 
   // ------------------------------------------------------------ alerts
 
@@ -196,6 +321,7 @@
 
   function notify(a) {
     beep();
+    if (NATIVE) return; // the macOS app already sends a native notification for this wait
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (!document.hidden && document.hasFocus()) return;
     try {
@@ -437,6 +563,8 @@
       ['Arrivée', fmtTime(a.startedAt)],
     ].filter(Boolean);
     const parts = [dl(rows)];
+    const usage = usageRows(a);
+    if (usage.length) parts.push(el('h3', null, 'Provisions (usage)'), dl(usage));
 
     if (a.kind === 'subagent') {
       const parent = state.agents.get(a.parentId) || state.agents.get(a.sessionId);
@@ -477,6 +605,30 @@
     body.replaceChildren(...parts);
     panel.hidden = false;
   }
+  function usageRows(a) {
+    const u = a.usage || {};
+    const t = a.tokens;
+    const m = modelInfo(a);
+    const rows = [];
+    if (m) rows.push(['Modèle', m.full]);
+    if (u.contextPct != null) {
+      rows.push(['Contexte', `${pctTxt(u.contextPct)} utilisé${u.contextSize ? ` (fenêtre de ${fmtTok(u.contextSize)})` : ''}`, u.contextPct >= 85 ? 'warn' : null]);
+    }
+    if (t) {
+      rows.push(['Entrée', `${fmtTok(t.input)} jetons`], ['Sortie', `${fmtTok(t.output)} jetons`],
+        ['Cache créé', `${fmtTok(t.cacheCreation)} jetons`], ['Cache lu', `${fmtTok(t.cacheRead)} jetons`]);
+    }
+    if (u.costUsd != null) rows.push(['Coût', `${fmtUsd(u.costUsd)} (d'après Claude Code)`]);
+    if (u.durationMs != null) rows.push(['Durée', fmtDur(u.durationMs)]);
+    if (u.linesAdded != null || u.linesRemoved != null) rows.push(['Lignes', `+${u.linesAdded || 0} / −${u.linesRemoved || 0}`]);
+    if (a.kind === 'session' && (a.subagentTotal || a.subTokens)) {
+      rows.push(['Sous-agents', String(a.subagentTotal || 0)]);
+      if (a.subTokens) rows.push(['Jetons sous-agents', `${fmtTok(a.subTokens.total)} (entrée ${fmtTok(a.subTokens.input)}, sortie ${fmtTok(a.subTokens.output)}, cache ${fmtTok(a.subTokens.cacheCreation + a.subTokens.cacheRead)})`]);
+    }
+    if (!rows.length && a.kind === 'session' && !a.demo) rows.push(['Usage', 'en attente de la status line et du transcript', 'muted']);
+    return rows;
+  }
+
   $('#detailClose').onclick = closeDetail;
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') closeDetail();
@@ -573,23 +725,108 @@
   };
   applyMusic();
 
+  // ------------------------------------------------------------ notifications (📣)
+
+  let flashTimer = null;
+  /** Small status message at the bottom of the map. */
+  function flash(text, kind) {
+    const f = $('#flash');
+    f.textContent = text;
+    f.className = 'flash panel' + (kind ? ' ' + kind : '');
+    f.hidden = false;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => {
+      f.hidden = true;
+    }, 6000);
+  }
+
+  const NOTIF_STATE = {
+    granted: ['on', 'Notifications : activées (clic = notification de test)'],
+    authorized: ['on', 'Notifications macOS : activées (clic = notification de test)'],
+    provisional: ['on', 'Notifications macOS : discrètes (clic = notification de test)'],
+    ephemeral: ['on', 'Notifications macOS : activées (clic = notification de test)'],
+    denied: ['', 'Notifications refusées : clic pour savoir comment les réactiver'],
+    default: ['', 'Activer les notifications'],
+    notDetermined: ['', 'Activer les notifications macOS'],
+  };
+  function setNotifButton(st) {
+    const b = $('#btnNotif');
+    const [cls, title] = NOTIF_STATE[st] || ['', 'Notifications'];
+    b.classList.toggle('on', cls === 'on');
+    b.title = title;
+    b.dataset.state = st;
+  }
+
+  function sendNative(msg) {
+    try {
+      window.webkit.messageHandlers.lotr.postMessage(msg);
+    } catch (e) {
+      console.error('[lotr] pont natif', e);
+    }
+  }
+
+  // Replies from the macOS app (evaluateJavaScript).
+  window.LOTRNativeReply = function (msg) {
+    if (!msg || msg.type !== 'notif') return;
+    console.log('[lotr] état des notifications reçu du natif :', msg.state, msg.action || '');
+    sendNative({ type: 'log', message: `page: état des notifications reçu = ${msg.state} (action ${msg.action || 'status'}${msg.tested ? ', test envoyé' : ''})` });
+    setNotifButton(msg.state);
+    if (msg.action !== 'request') return;
+    if (msg.state === 'denied') {
+      flash('🔕 Notifications refusées pour Terre du Milieu. Réglages Système > Notifications s\'ouvrent : active « Autoriser les notifications ».', 'bad');
+    } else if (msg.tested) {
+      flash('🔥 Notification de test envoyée. Rien ne s\'affiche ? Vérifie le mode Concentration et le style des alertes dans Réglages Système > Notifications.', 'good');
+    } else if (msg.state === 'notDetermined') {
+      flash('Autorisation non accordée : clique à nouveau sur 📣 pour la redemander.', 'bad');
+    }
+  };
+
+  function browserTest() {
+    try {
+      const n = new Notification('🔥 Test — les feux d\'alarme fonctionnent', { body: 'Tu seras prévenu quand un agent attend ta réponse (si la page n\'est pas au premier plan).', tag: 'lotr-test' });
+      n.onclick = () => window.focus();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function applyNotif() {
     const b = $('#btnNotif');
+    if (NATIVE) {
+      sendNative({ type: 'notif', action: 'status' });
+      return;
+    }
     if (!('Notification' in window)) {
       b.hidden = true;
       return;
     }
-    b.classList.toggle('on', Notification.permission === 'granted');
-    b.title = Notification.permission === 'granted' ? 'Notifications du navigateur : activées' : 'Activer les notifications du navigateur';
+    setNotifButton(Notification.permission);
   }
   $('#btnNotif').onclick = async () => {
-    if (!('Notification' in window)) return;
-    try {
-      await Notification.requestPermission();
-    } catch {
-      /* ignore */
+    if (NATIVE) {
+      sendNative({ type: 'notif', action: 'request' });
+      return;
     }
-    applyNotif();
+    if (!('Notification' in window)) return;
+    let st = Notification.permission;
+    if (st === 'default') {
+      try {
+        st = await Notification.requestPermission();
+      } catch {
+        st = Notification.permission;
+      }
+    }
+    setNotifButton(st);
+    if (st === 'granted') {
+      const ok = browserTest();
+      flash(ok ? '📣 Notifications : granted — notification de test envoyée (les alertes arrivent quand la page n\'est pas au premier plan).'
+        : '📣 Notifications : granted, mais le navigateur a refusé la notification de test.', ok ? 'good' : 'bad');
+    } else if (st === 'denied') {
+      flash('🔕 Notifications : denied. Pour les réactiver : clique sur le cadenas (ou l\'icône du site) à gauche de l\'adresse > Notifications > Autoriser, puis recharge la page.', 'bad');
+    } else {
+      flash('📣 Notifications : default — la demande a été fermée sans réponse. Clique à nouveau pour la refaire.', '');
+    }
   };
   applyNotif();
 

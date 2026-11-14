@@ -33,6 +33,40 @@ npm run uninstall-hooks   # les retire
   toujours en code 0, silencieusement : il ne bloque jamais Claude Code, même si la carte est éteinte.
   Port différent : exporte `LOTR_MAP_PORT` dans l'environnement de Claude Code.
 
+## Usage de Claude (status line + transcripts)
+
+La carte affiche aussi l'usage de Claude, à partir de deux sources :
+
+- **La status line** de Claude Code (limites 5 h et 7 jours, modèle, % de contexte, coût, durée, lignes) :
+
+  ```sh
+  npm run install-statusline     # ajoute une ligne à ton script de status line
+  npm run uninstall-statusline   # la retire
+  ```
+
+  Le script lit `statusLine.command` dans `~/.claude/settings.json` (forme `sh /chemin/script.sh`,
+  `bash '…'` ou un script exécutable sh/bash), et ajoute juste après `input=$(cat)` une ligne marquée
+  `# lotr-map-statusline` qui transmet l'entrée à `hooks/send-statusline.sh` :
+  `printf '%s' "$input" | '…/send-statusline.sh' >/dev/null 2>&1 || true # lotr-map-statusline`.
+  L'envoi part en arrière-plan (curl, 1 s), n'écrit rien sur la sortie et ne change pas le texte affiché.
+  Idempotent, sauvegarde dans `<script>.bak-lotr`. Sans `input=$(cat)` ou si la commande n'est pas un simple
+  script shell, rien n'est modifié et la ligne à ajouter est affichée. Sans status line, `--create` en
+  installe une minimale (`~/.claude/lotr-statusline.sh`). `LOTR_HOOK_DIR=<dossier>` copie le script d'envoi
+  dans un dossier stable (comme pour les hooks), `CLAUDE_SETTINGS` / `CLAUDE_STATUSLINE_SCRIPT` ciblent
+  d'autres fichiers (tests).
+- **Les transcripts** (`transcript_path` des hooks et de la status line) : le serveur lit les JSONL de façon
+  incrémentale (offset par fichier, lecture asynchrone, au plus toutes les 5 s par session ou sur
+  Stop/PostToolUse), uniquement sous `~/.claude/projects/`, et additionne `message.usage` des réponses
+  (dédoublonnées par `message.id` / `requestId`). Les sous-agents qui ont leur propre transcript
+  (`<session>/subagents/agent-<id>.jsonl`) sont comptés à part. Seuls des nombres sont conservés.
+
+À l'écran : jauges *Lembas* (5 h) et *Greniers* (7 j) avec compte à rebours dans l'en-tête, jetons et coût
+du jour, lanterne (contexte) et badge de modèle près de chaque banderole, détail des jetons dans le panneau,
+ombre du Mordor à partir de 80 % de la limite 5 h et feu de camp à 100 %. La chronique n'annonce que les
+franchissements de seuil (5 h : 50/80/90/100 %, 7 j : 80/90 %, reset, contexte > 85 %). Les seuils annoncés
+sont gardés dans `usage-state.json` (à côté de `events.jsonl`). `POST /statusline` reçoit le JSON brut ; une
+status line d'une session encore inconnue est mise de côté jusqu'à son premier hook (pas d'agent fantôme).
+
 ## App macOS
 
 Une app native (AppKit + WebKit, sans projet Xcode ni dépendance) qu'on lance d'un double-clic.
@@ -60,7 +94,13 @@ Ce que fait l'app :
   dans le navigateur, Installer/Désinstaller les hooks Claude Code, Quitter. Le badge du Dock affiche
   aussi le nombre d'agents en attente.
 - **Notifications** : « 🔥 <projet> attend ta réponse » avec la question, une seule fois par attente ;
-  un clic ouvre la carte. L'autorisation est demandée au premier lancement.
+  un clic ouvre la carte. L'autorisation est demandée au premier lancement. Aussi une seule fois par
+  fenêtre quand la limite 5 h franchit 80 % puis 95 %. Le bouton 📣 de la carte (et « Tester les
+  notifications » dans le menu) demande l'autorisation si besoin, ouvre Réglages Système > Notifications
+  si elle est refusée, ou envoie une notification de test. Dans l'app, la page n'envoie jamais de
+  notification Web (pas de doublon).
+- **Usage** : à côté du 🔥, `5h 21% · 7d 20%` dans la barre de menus (masqué sans données) ; dans le menu,
+  les limites avec leur reset et les jetons du jour.
 - **Hooks** : l'installation depuis l'app (après confirmation) copie `send-event.sh` dans
   `~/Library/Application Support/TerreDuMilieu/` et c'est ce chemin stable qui est écrit dans
   `~/.claude/settings.json` : déplacer ou mettre à jour l'app ne casse rien. En ligne de commande,
@@ -93,8 +133,10 @@ voir le détail (dossier, dernier prompt, 15 dernières actions, sous-agents).
 
 ## Fonctionnement
 
-- `server.js` : serveur HTTP sur 127.0.0.1 uniquement. `POST /event` (JSON du hook), `GET /stream` (SSE),
+- `server.js` : serveur HTTP sur 127.0.0.1 uniquement. `POST /event` (JSON du hook), `POST /statusline`
+  (JSON de la status line), `GET /stream` (SSE),
   `GET /state` (instantané JSON), `POST /demo/start|stop`.
+- `lib/usage.js` / `lib/transcripts.js` : normalisation de la status line, seuils, lecture des transcripts.
 - `lib/store.js` : normalisation des hooks, statuts, chronique et Conseil d'Elrond. Les entrées/sorties
   d'outils sont tronquées (le contenu des fichiers écrits n'est jamais conservé).
 - Les ~500 derniers événements réels sont gardés dans `data/events.jsonl` (ou `$LOTR_DATA_DIR`) et rejoués au démarrage

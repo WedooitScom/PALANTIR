@@ -33,6 +33,46 @@ npm run uninstall-hooks   # les retire
   toujours en code 0, silencieusement : il ne bloque jamais Claude Code, même si la carte est éteinte.
   Port différent : exporte `LOTR_MAP_PORT` dans l'environnement de Claude Code.
 
+## App macOS
+
+Une app native (AppKit + WebKit, sans projet Xcode ni dépendance) qu'on lance d'un double-clic.
+
+```sh
+npm run build:mac     # = bash macos/build.sh -> dist/Terre du Milieu.app
+```
+
+Glisse ensuite `dist/Terre du Milieu.app` dans `/Applications`. Prérequis : Xcode (ou les Command Line
+Tools) pour compiler, et **Node.js ≥ 18** sur la machine qui lance l'app. L'app cherche `node` dans
+`/opt/homebrew/bin`, `/usr/local/bin`, la plus haute version de `~/.nvm/versions/node/*/bin`, puis via
+`zsh -lc 'command -v node'` ; sinon elle affiche une alerte.
+
+Ce que fait l'app :
+
+- **Serveur** : si un serveur répond déjà sur `http://127.0.0.1:4777` (par exemple un `npm start`), elle
+  le réutilise. Sinon elle lance le serveur embarqué (`Contents/Resources/app`) et l'arrête en quittant
+  (il s'arrête aussi tout seul si l'app plante). Les événements vont dans
+  `~/Library/Application Support/TerreDuMilieu/events.jsonl`, la sortie du serveur dans `server.log`
+  du même dossier.
+- **Fenêtre** : la carte dans une WebView (son autorisé), position et taille mémorisées. Fermer la fenêtre
+  ne quitte pas l'app ; un clic sur l'icône du Dock la rouvre.
+- **Barre de menus** : icône pixel + « 🔥N » quand N agents attendent. Menu : résumé (compagnies actives,
+  agents qui codent, en attente), liste des questions en attente, Ouvrir la carte, Mode démo, Ouvrir
+  dans le navigateur, Installer/Désinstaller les hooks Claude Code, Quitter. Le badge du Dock affiche
+  aussi le nombre d'agents en attente.
+- **Notifications** : « 🔥 <projet> attend ta réponse » avec la question, une seule fois par attente ;
+  un clic ouvre la carte. L'autorisation est demandée au premier lancement.
+- **Hooks** : l'installation depuis l'app (après confirmation) copie `send-event.sh` dans
+  `~/Library/Application Support/TerreDuMilieu/` et c'est ce chemin stable qui est écrit dans
+  `~/.claude/settings.json` : déplacer ou mettre à jour l'app ne casse rien. En ligne de commande,
+  `LOTR_HOOK_DIR=<dossier> npm run install-hooks` fait de même.
+
+Variables utiles : `LOTR_DATA_DIR` (dossier des données du serveur, `data/` par défaut),
+`LOTR_APP_PORT=xxxx` ou `--port xxxx` pour pointer l'app vers un autre port (tests), par exemple
+`open -n --env LOTR_APP_PORT=4799 "dist/Terre du Milieu.app"`.
+
+L'app est signée ad hoc (`codesign -s -`) : sur un autre Mac, Gatekeeper demandera un clic droit > Ouvrir
+la première fois. Le binaire est compilé pour l'architecture de la machine de build.
+
 ## Légende
 
 | Personnage | Signification |
@@ -57,7 +97,7 @@ voir le détail (dossier, dernier prompt, 15 dernières actions, sous-agents).
   `GET /state` (instantané JSON), `POST /demo/start|stop`.
 - `lib/store.js` : normalisation des hooks, statuts, chronique et Conseil d'Elrond. Les entrées/sorties
   d'outils sont tronquées (le contenu des fichiers écrits n'est jamais conservé).
-- Les ~500 derniers événements réels sont gardés dans `data/events.jsonl` et rejoués au démarrage
+- Les ~500 derniers événements réels sont gardés dans `data/events.jsonl` (ou `$LOTR_DATA_DIR`) et rejoués au démarrage
   (les événements de démo ne sont pas persistés).
 - Une session inactive depuis 30 min passe « partie », puis disparaît après 2 h.
 - Le cycle jour/nuit suit l'heure locale (bouton 🌙 pour le couper, `?night=1` pour forcer la nuit).

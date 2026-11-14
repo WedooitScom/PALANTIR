@@ -20,7 +20,9 @@ const { Demo } = require('./lib/demo');
 const PORT = Number(process.env.PORT) || 4777;
 const HOST = '127.0.0.1';
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const EVENTS_FILE = process.env.LOTR_EVENTS_FILE || path.join(__dirname, 'data', 'events.jsonl');
+// LOTR_DATA_DIR lets the macOS app keep data out of its bundle (~/Library/Application Support/...).
+const DATA_DIR = process.env.LOTR_DATA_DIR || path.join(__dirname, 'data');
+const EVENTS_FILE = process.env.LOTR_EVENTS_FILE || path.join(DATA_DIR, 'events.jsonl');
 const MAX_BODY = 20 * 1024 * 1024;
 
 const MIME = {
@@ -231,6 +233,18 @@ function shutdown() {
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+// When spawned by the macOS app, exit if the app disappears (crash, force quit) instead of lingering.
+const PARENT_PID = Number(process.env.LOTR_PARENT_PID) || 0;
+if (PARENT_PID > 1) {
+  setInterval(() => {
+    try {
+      process.kill(PARENT_PID, 0);
+    } catch {
+      shutdown();
+    }
+  }, 2000).unref();
+}
 
 server.listen(PORT, HOST, () => {
   console.log(`[lotr] Carte de la Terre du Milieu : http://${HOST}:${PORT}`);

@@ -6,7 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '..');
-export const SCRIPT = path.join(ROOT, 'hooks', 'send-event.sh');
+// The hook script shipped with this copy of the project.
+export const SOURCE_SCRIPT = path.join(ROOT, 'hooks', 'send-event.sh');
+// LOTR_HOOK_DIR: install a stable copy of the script there (used by the macOS app, so that moving
+// or updating the .app never breaks the path written in settings.json). Default: use it in place.
+export const HOOK_DIR = process.env.LOTR_HOOK_DIR || '';
+export const SCRIPT = HOOK_DIR ? path.join(path.resolve(HOOK_DIR), 'send-event.sh') : SOURCE_SCRIPT;
 export const MARKER = 'lotr-map-hook';
 // CLAUDE_SETTINGS lets you target another file (handy for testing).
 export const SETTINGS = process.env.CLAUDE_SETTINGS || path.join(os.homedir(), '.claude', 'settings.json');

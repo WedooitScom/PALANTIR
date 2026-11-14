@@ -4,14 +4,19 @@
 //   node scripts/install-hooks.mjs            install
 //   node scripts/install-hooks.mjs --dry-run  print the resulting settings without writing
 import fs from 'node:fs';
+import path from 'node:path';
 import {
-  BACKUP, EVENTS, SCRIPT, SETTINGS, WITH_MATCHER, commandFor, readSettings, stripOurs, writeSettings,
+  BACKUP, EVENTS, SCRIPT, SETTINGS, SOURCE_SCRIPT, WITH_MATCHER, commandFor, readSettings, stripOurs, writeSettings,
 } from './hooks-common.mjs';
 
 const dryRun = process.argv.includes('--dry-run');
 
 function main() {
-  if (!fs.existsSync(SCRIPT)) throw new Error(`Script introuvable : ${SCRIPT}`);
+  if (!fs.existsSync(SOURCE_SCRIPT)) throw new Error(`Script introuvable : ${SOURCE_SCRIPT}`);
+  if (SCRIPT !== SOURCE_SCRIPT && !dryRun) {
+    fs.mkdirSync(path.dirname(SCRIPT), { recursive: true });
+    fs.copyFileSync(SOURCE_SCRIPT, SCRIPT);
+  }
   if (!dryRun) {
     try {
       fs.chmodSync(SCRIPT, 0o755);
@@ -46,6 +51,7 @@ function main() {
   }
   writeSettings(settings, exists);
   console.log(`Hooks de la Carte installés dans ${SETTINGS}`);
+  console.log(`Script : ${SCRIPT}`);
   if (exists) console.log(`Sauvegarde : ${BACKUP}`);
   if (skipped.length) console.log(`Ignorés (format inattendu) : ${skipped.join(', ')}`);
   console.log('Relance tes sessions Claude Code (ou /hooks) pour activer les hooks, puis : npm start');

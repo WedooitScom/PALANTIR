@@ -9,7 +9,8 @@
     "demo": "node server.js --demo",
     "test": "node --test",
     "install-hooks": "node scripts/install-hooks.mjs",
-    "uninstall-hooks": "node scripts/uninstall-hooks.mjs"
+    "uninstall-hooks": "node scripts/uninstall-hooks.mjs",
+    "build:mac": "bash macos/build.sh"
   },
   "engines": {
     "node": ">=18"

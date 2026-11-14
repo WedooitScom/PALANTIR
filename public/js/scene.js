@@ -71,6 +71,130 @@
   }
   const STARVED_PCT = 100;
 
+  // ------------------------------------------------ marching troops (new subagents)
+  // Waypoints of the roads between the territories, so that troops go round the mountains
+  // (High Pass, mines of Moria, Gap of Rohan, the pass south of the Ephel Dúath).
+  const ROUTE_NODES = {
+    havens: [54, 66], shire: [66, 88], bree: [100, 77], rivendell: [134, 59],
+    highPass: [157, 57], anduin: [178, 64], mirkwood: [240, 60], erebor: [300, 59],
+    eregion: [124, 98], moria: [146, 106], dimrill: [168, 104], lorien: [190, 99],
+    westVale: [140, 130], gap: [167, 144], isengard: [159, 150], rohan: [206, 127],
+    road1: [214, 140], road2: [226, 160], gondor: [236, 173], ithilien: [252, 196],
+    pass: [266, 214], gorgoroth: [282, 206], mordor: [294, 194],
+  };
+  const ROUTE_EDGES = [
+    ['havens', 'shire'], ['shire', 'bree'], ['bree', 'rivendell'], ['rivendell', 'highPass'], ['highPass', 'anduin'],
+    ['anduin', 'mirkwood'], ['mirkwood', 'erebor'], ['bree', 'eregion'], ['shire', 'eregion'], ['eregion', 'moria'],
+    ['moria', 'dimrill'], ['dimrill', 'lorien'], ['anduin', 'lorien'], ['moria', 'westVale'], ['eregion', 'westVale'],
+    ['westVale', 'gap'], ['gap', 'isengard'], ['gap', 'rohan'], ['lorien', 'rohan'], ['rohan', 'road1'],
+    ['road1', 'road2'], ['road2', 'gondor'], ['gondor', 'ithilien'], ['ithilien', 'pass'], ['pass', 'gorgoroth'],
+    ['gorgoroth', 'mordor'],
+  ];
+  const ROUTE_ADJ = {};
+  for (const [a, b] of ROUTE_EDGES) {
+    const d = Math.hypot(ROUTE_NODES[a][0] - ROUTE_NODES[b][0], ROUTE_NODES[a][1] - ROUTE_NODES[b][1]);
+    (ROUTE_ADJ[a] = ROUTE_ADJ[a] || []).push([b, d]);
+    (ROUTE_ADJ[b] = ROUTE_ADJ[b] || []).push([a, d]);
+  }
+  const routeCache = new Map();
+  /** Shortest chain of waypoint names between two nodes (Dijkstra on a tiny graph, cached). */
+  function routeBetween(from, to) {
+    const key = from + '>' + to;
+    if (routeCache.has(key)) return routeCache.get(key);
+    const dist = { [from]: 0 };
+    const prev = {};
+    const todo = new Set(Object.keys(ROUTE_NODES));
+    while (todo.size) {
+      let u = null;
+      for (const n of todo) if (dist[n] != null && (u === null || dist[n] < dist[u])) u = n;
+      if (u === null || u === to) break;
+      todo.delete(u);
+      for (const [v, d] of ROUTE_ADJ[u] || []) {
+        if (dist[v] == null || dist[u] + d < dist[v]) {
+          dist[v] = dist[u] + d;
+          prev[v] = u;
+        }
+      }
+    }
+    const out = [];
+    if (dist[to] != null) for (let n = to; n; n = prev[n]) out.unshift(n);
+    routeCache.set(key, out);
+    return out;
+  }
+  const MAX_TROOPS = 8;
+  const TROOP_GAP = 7; // map px between the members of a troop
+  const TROOP_FADE = 0.7; // s, companions fading out at the arrival
+  const SPAWN_FRESH_MS = 20000; // only subagents born this recently march (not a backlog after a hidden tab)
+
+  /** Smooth polyline (Catmull-Rom) through the points, with cumulative lengths. */
+  function smoothPath(pts) {
+    const xs = [], ys = [], cum = [];
+    let L = 0;
+    const push = (x, y) => {
+      if (xs.length) L += Math.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1]);
+      xs.push(x);
+      ys.push(y);
+      cum.push(L);
+    };
+    push(pts[0][0], pts[0][1]);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const n = Math.max(2, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / 4));
+      for (let k = 1; k <= n; k++) {
+        const u = k / n, u2 = u * u, u3 = u2 * u;
+        const cr = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (-a + 3 * b - 3 * c + d) * u3);
+        push(cr(p0[0], p1[0], p2[0], p3[0]), cr(p0[1], p1[1], p2[1], p3[1]));
+      }
+    }
+    return { xs, ys, cum, L };
+  }
+  /** Point at arc length d along a smoothPath (written into out). */
+  function pathAt(path, d, out) {
+    const { xs, ys, cum, L } = path;
+    d = clamp(d, 0, L);
+    let lo = 0, hi = cum.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (cum[mid] < d) lo = mid;
+      else hi = mid;
+    }
+    const seg = cum[hi] - cum[lo] || 1;
+    const k = clamp((d - cum[lo]) / seg, 0, 1);
+    out.x = xs[lo] + (xs[hi] - xs[lo]) * k;
+    out.y = ys[lo] + (ys[hi] - ys[lo]) * k;
+    out.dx = xs[hi] - xs[lo];
+    return out;
+  }
+
+  // ------------------------------------------------ weather
+  const RAIN_FADE = 0.8; // intensity per second (in and out)
+  const DRIZZLE_DROPS = 46; // per rainy territory
+  const MAP_RAIN_DROPS = 340; // rain over the whole map (several territories)
+  const MORDOR_RAIN_DROPS = 60;
+  const MORDOR = { x: 252, y: 124, w: W - 252, h: H - 124 };
+  const STORM_PCT = 90;
+  const DARK_PCT = 75;
+
+  /** Small procedural cloud sprite (light top, dark underside). */
+  function makeCloud(w, h, seed, top, bottom) {
+    const cv = document.createElement('canvas');
+    cv.width = w;
+    cv.height = h;
+    const c = cv.getContext('2d');
+    const blobs = [];
+    for (let b = 0; b < 4; b++) blobs.push([4 + M.hash2(b, seed, 1) * (w - 8), h / 2 + (M.hash2(b, seed, 2) - 0.3) * 2, 3 + M.hash2(b, seed, 3) * 5]);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let inside = false;
+        for (const [bx, by, br] of blobs) if ((x - bx) ** 2 + ((y - by) * 1.6) ** 2 < br * br) inside = true;
+        if (!inside) continue;
+        c.fillStyle = y > h * 0.55 ? bottom : top;
+        c.fillRect(x, y, 1, 1);
+      }
+    }
+    return cv;
+  }
+
   class Scene {
     constructor(canvas, opts) {
       this.canvas = canvas;
@@ -98,6 +222,25 @@
       this.hud = []; // screen-space hit boxes (lanterns, model badges)
       this.animSpeed = 1; // < 1 slows the characters down (ent language); data timers are untouched
       this.animT = 0;
+      this.quiet = false; // set by quietSpawn(): what a snapshot brings appears in place
+      this.tmpPt = { x: 0, y: 0, dx: 0 };
+      // Weather: rain over the territories whose tests fail, storm over Mordor near the limits.
+      this.weather = { rain: false, storm: false };
+      this.rainK = new Map(); // territory key -> rain intensity (0..1, fades)
+      this.rainKeys = new Set();
+      this.rainAllK = 0;
+      this.darkK = 0;
+      this.stormK = 0;
+      this.bolt = null;
+      this.nextBoltAt = 0;
+      this.boltPts = new Int16Array(24);
+      const wf = /[?&]weather=(rain|storm|clear)/.exec(location.search);
+      this.forceWeather = wf ? wf[1] : null; // testing: ?weather=rain|storm|clear
+      this.rainClouds = [0, 1, 2].map((k) => makeCloud(24 + k * 4, 9, 50 + k, 'rgba(150,156,168,0.85)', 'rgba(104,110,124,0.88)'));
+      this.stormClouds = [0, 1, 2].map((k) => makeCloud(30 + k * 5, 10, 70 + k, 'rgba(70,62,78,0.9)', 'rgba(38,32,44,0.92)'));
+      const mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+      this.reduceMotion = !!(mq && mq.matches);
+      if (mq && mq.addEventListener) mq.addEventListener('change', (ev) => (this.reduceMotion = ev.matches));
 
       this.resize();
       if (window.ResizeObserver) {
@@ -121,6 +264,11 @@
 
     setAgents(map) {
       this.agents = map;
+    }
+
+    /** The agents of the next frame come from a snapshot: no marching troops for them. */
+    quietSpawn() {
+      this.quiet = true;
     }
 
     resize() {
@@ -253,6 +401,7 @@
         this.moveEntity(e, t, dt);
         if (e.alpha <= 0 && e.leaving) this.entities.delete(id);
       }
+      this.quiet = false;
     }
 
     createEntity(a, t) {
@@ -277,13 +426,66 @@
       const e = {
         id: a.id, agent: a, slot, x, y, alpha, facing: 1, walking: false, leaving: false,
         seed: (hashStr(a.id) % 1000) / 1000, wander: null, wanderAt: 0, strike: -1, hStrike: -1,
-        mailUntil: 0, helperWork: null, helperAlpha: 0, helperPos: null,
+        mailUntil: 0, helperWork: null, helperAlpha: 0, helperPos: null, troop: null,
       };
+      if (this.wantsTroop(a)) this.startTroop(e, home, t);
       this.entities.set(a.id, e);
       return e;
     }
 
+    /** A live, freshly spawned subagent marches from the Shire (unless the motion is reduced or too many already march). */
+    wantsTroop(a) {
+      if (!this.warm || this.quiet || this.reduceMotion || a.kind !== 'subagent') return false;
+      if (!(Date.now() - (Number(a.startedAt) || 0) < SPAWN_FRESH_MS)) return false;
+      let n = 0;
+      for (const o of this.entities.values()) if (o.troop && !o.troop.arrivedAt) n++;
+      return n < MAX_TROOPS;
+    }
+
+    /** Route from the Shire (or from the Havens when the company itself is in the Shire) to the post. */
+    startTroop(e, home, t) {
+      const key = this.terr(e.agent).key;
+      const from = key === 'shire' ? 'havens' : 'shire';
+      const names = ROUTE_NODES[key] ? routeBetween(from, key) : [from];
+      const pts = names.map((n) => ROUTE_NODES[n]);
+      if (!pts.length) pts.push(ROUTE_NODES[from]);
+      // The territory's waypoint is its centre: end on the post itself instead.
+      if (pts.length > 1 && names[names.length - 1] === key) pts.pop();
+      pts.push([home.x, home.y]);
+      const path = smoothPath(pts);
+      if (path.L < 2) return;
+      const n = e.seed < 0.5 ? 1 : 2;
+      e.troop = { path, t0: t, dur: clamp(path.L / 42, 4, 8), n, d: 0, arrivedAt: 0, endX: home.x, endY: home.y };
+      e.x = pts[0][0];
+      e.y = pts[0][1];
+      e.alpha = 0;
+    }
+
+    /** One step of a marching troop (animation clock: slower in Ent). */
+    stepTroop(e, t, dt) {
+      const tr = e.troop;
+      const p = clamp((t - tr.t0) / tr.dur, 0, 1);
+      const ease = 0.75 * p + 0.25 * p * p * (3 - 2 * p);
+      tr.d = ease * tr.path.L;
+      const pt = pathAt(tr.path, tr.d, this.tmpPt);
+      if (Math.abs(pt.dx) > 0.05) e.facing = pt.dx < 0 ? -1 : 1;
+      e.x = pt.x;
+      e.y = pt.y;
+      e.walking = true;
+      e.alpha = Math.min(1, e.alpha + dt * 3);
+      if (p >= 1) {
+        tr.arrivedAt = t;
+        e.walking = false;
+      }
+    }
+
     moveEntity(e, t, dt) {
+      // A marching troop finishes its walk first (even if its subagent is already done).
+      if (e.troop && !e.troop.arrivedAt) {
+        this.stepTroop(e, t, dt);
+        return;
+      }
+      if (e.troop && t - e.troop.arrivedAt > TROOP_FADE) e.troop = null;
       const a = e.agent;
       let target;
       let speed = 16;
@@ -378,9 +580,12 @@
       this.drawParticles(f, dt);
       this.drawFlights(f, t);
       M.drawClouds(f, w, t, dt);
+      this.updateWeather(dt);
+      this.drawWeather(f, t);
       const amt = this.forceNight ? 0.38 : this.nightEnabled ? M.nightAmount(new Date()) : 0;
       M.drawNight(f, w, amt, t, lights);
       this.drawShadow(f, t);
+      this.drawLightning(f, t, amt);
 
       // Blit.
       const c = this.ctx;
@@ -435,6 +640,7 @@
       const work = e.leaving || starved ? null : workFor(a);
       const tt = t + e.seed * 10;
       e.helperPos = null;
+      if (e.troop) this.queueTroop(e, t, dt, tt, alpha, draws);
 
       if (starved && !e.walking) {
         lights.push([fx + 7, fy - 4]);
@@ -501,6 +707,162 @@
         e.helperPos = { x: hx, y: hy };
         const ha = alpha * e.helperAlpha;
         draws.push({ y: hy, fn: () => this.drawWorker(work, hx, hy, tt + 0.37, ha, e, true) });
+      }
+    }
+
+    /** Companions (porters) walking in file behind a marching subagent, a little dust, fade at the arrival. */
+    queueTroop(e, t, dt, tt, alpha, draws) {
+      const tr = e.troop;
+      const f = this.f;
+      const fade = tr.arrivedAt ? clamp(1 - (t - tr.arrivedAt) / TROOP_FADE, 0, 1) : 1;
+      if (fade <= 0) return;
+      const marching = !tr.arrivedAt;
+      for (let i = 1; i <= tr.n; i++) {
+        const back = tr.d - TROOP_GAP * i;
+        const pt = pathAt(tr.path, back, this.tmpPt);
+        const cx = Math.round(pt.x), cy = Math.round(pt.y);
+        const flip = pt.dx < -0.05 || (Math.abs(pt.dx) <= 0.05 && e.facing < 0);
+        // Companions appear as the troop leaves (they start bunched on the first waypoint).
+        const ca = alpha * fade * clamp(tr.d / (TROOP_GAP * i), 0, 1);
+        if (ca <= 0.02) continue;
+        const ct = marching ? tt + i * 0.21 : 0;
+        draws.push({ y: cy, fn: () => S.drawPorter(f, cx, cy, ct, { flip, alpha: ca, alt: i === 2 }) });
+        if (marching && Math.random() < dt * 5) this.particles.push({ x: cx + (Math.random() - 0.5) * 4, y: cy, vx: (Math.random() - 0.5) * 3, vy: -2 - Math.random() * 2, g: 0, life: 0, max: 0.6 + Math.random() * 0.4, color: 'rgba(196,172,124,0.75)' });
+      }
+      if (marching && Math.random() < dt * 4) this.particles.push({ x: e.x + (Math.random() - 0.5) * 4, y: e.y, vx: -e.facing * (1 + Math.random() * 2), vy: -2 - Math.random() * 2, g: 0, life: 0, max: 0.6 + Math.random() * 0.4, color: 'rgba(196,172,124,0.75)' });
+    }
+
+    // ------------------------------------------------ weather
+
+    /** Rain targets (sessions with failing tests) and the storm over Mordor (limits), with smooth fades. */
+    updateWeather(dt) {
+      const now = Date.now();
+      const keys = this.rainKeys;
+      keys.clear();
+      const fw = this.forceWeather;
+      if (fw !== 'clear') {
+        for (const a of this.agents.values()) {
+          if (a.kind !== 'session' || a.status === 'done' || !a.territory) continue;
+          if (fw === 'rain' || (a.tests && a.tests.rainUntil > now)) keys.add(a.territory);
+        }
+      }
+      const all = keys.size >= 2 || (fw === 'rain' && keys.size === 0);
+      const step = dt * RAIN_FADE;
+      this.rainAllK = clamp(this.rainAllK + (all ? step : -step), 0, 1);
+      for (const k of keys) if (!this.rainK.has(k)) this.rainK.set(k, 0);
+      for (const [k, v] of this.rainK) {
+        const nv = clamp(v + (keys.has(k) && !all ? step : -step), 0, 1);
+        if (nv <= 0 && !keys.has(k)) this.rainK.delete(k);
+        else this.rainK.set(k, nv);
+      }
+      const u = this.usage;
+      const p = fw === 'storm' ? 100 : fw === 'clear' ? 0 : u ? Math.max(u.fivePct || 0, u.sevenPct || 0) : 0;
+      const darkTarget = p >= STORM_PCT ? 1 : p >= DARK_PCT ? 0.5 : 0;
+      this.darkK = clamp(this.darkK + clamp(darkTarget - this.darkK, -step, step), 0, 1);
+      this.stormK = clamp(this.stormK + (p >= STORM_PCT ? step : -step), 0, 1);
+      this.weather.rain = keys.size > 0;
+      this.weather.storm = p >= STORM_PCT;
+    }
+
+    /** Falling drops in a box, stateless (positions from the clock): no allocation, no particle to keep. */
+    drawRain(f, x0, y0, w, h, n, t, seed) {
+      if (this.reduceMotion) n = Math.round(n * 0.4);
+      f.fillStyle = 'rgba(184,204,234,0.66)';
+      for (let i = 0; i < n; i++) {
+        const r1 = M.hash2(i, seed, 3), r2 = M.hash2(i, seed, 7);
+        const yy = (r2 * h + t * (64 + r1 * 36)) % h;
+        const x = Math.round(x0 + r1 * w - yy * 0.25);
+        const y = Math.round(y0 + yy);
+        f.fillRect(x, y, 1, 2);
+        f.fillRect(x + 1, y - 1, 1, 1); // slanted streak
+        if (yy > h - 2) f.fillRect(x - 1, y + 2, 3, 1); // splash
+      }
+    }
+
+    /** Rain clouds and rain over the territories, storm clouds over Mordor (drawn before the night veil). */
+    drawWeather(f, t) {
+      // Mordor: darker sky from 75 %, storm (clouds, rain) from 90 %.
+      if (this.darkK > 0.01) {
+        const k = this.darkK;
+        f.fillStyle = `rgba(20,12,28,${0.26 * k})`;
+        for (let y = MORDOR.y; y < H; y += 3) {
+          const off = Math.round(Math.sin(y * 0.13 + t * 0.4) * 3 + M.hash2(1, y >> 3, 17) * 6);
+          f.fillRect(MORDOR.x + off, y, W - MORDOR.x - off, 3);
+        }
+        const drift = this.reduceMotion ? 0 : t * 1.5;
+        f.globalAlpha = Math.min(1, 0.45 * k + 0.55 * this.stormK);
+        for (let i = 0; i < 4; i++) {
+          const c = this.stormClouds[i % 3];
+          const span = MORDOR.w + c.width;
+          const x = MORDOR.x - c.width / 2 + ((i * 37 + drift) % span) - 10;
+          f.drawImage(c, Math.round(x), MORDOR.y + 6 + ((i * 11) % 22));
+        }
+        f.globalAlpha = 1;
+      }
+      if (this.stormK > 0.01) this.drawRain(f, MORDOR.x, MORDOR.y + 14, MORDOR.w, MORDOR.h - 14, Math.round(MORDOR_RAIN_DROPS * this.stormK), t, 5);
+      // A rain cloud over each territory whose tests fail.
+      let idx = 0;
+      for (const [key, k] of this.rainK) {
+        const T = TERR_BY_KEY[key];
+        if (!T || k <= 0.01) continue;
+        const w = (T.rx + 14) * 2;
+        const x0 = T.cx - w / 2;
+        const top = T.cy - 38;
+        this.drawRain(f, x0 + 3, top + 6, w - 2, T.cy + T.ry + 4 - (top + 6), Math.round(DRIZZLE_DROPS * k), t, 11 + idx++);
+        f.globalAlpha = k;
+        const sway = this.reduceMotion ? 0 : Math.sin(t * 0.3 + T.cx) * 2;
+        f.drawImage(this.rainClouds[0], Math.round(x0 + sway), top - 2);
+        f.drawImage(this.rainClouds[1], Math.round(x0 + w - this.rainClouds[1].width - sway), top);
+        f.globalAlpha = 1;
+      }
+      // Several territories: it rains over the whole map, under a grey veil.
+      if (this.rainAllK > 0.01) {
+        f.fillStyle = `rgba(52,62,82,${0.14 * this.rainAllK})`;
+        f.fillRect(0, 0, W, H);
+        this.drawRain(f, 0, 0, W + 40, H, Math.round(MAP_RAIN_DROPS * this.rainAllK), t, 3);
+      }
+    }
+
+    /** Lightning over Mordor during the storm, with a light flash (after the night veil: brighter at night). */
+    drawLightning(f, t, night) {
+      if (this.reduceMotion || this.stormK < 0.6) {
+        this.bolt = null;
+        return;
+      }
+      if (!this.bolt && t >= this.nextBoltAt) {
+        const pts = this.boltPts;
+        let x = MORDOR.x + 14 + Math.random() * (MORDOR.w - 28);
+        let y = MORDOR.y + 14;
+        const ground = y + 40 + Math.random() * 40;
+        let n = 0;
+        while (n < pts.length / 2 && y < ground) {
+          pts[n * 2] = Math.round(x);
+          pts[n * 2 + 1] = Math.round(y);
+          n++;
+          x += (Math.random() - 0.5) * 9;
+          y += 5 + Math.random() * 6;
+        }
+        this.bolt = { t0: t, n };
+        this.nextBoltAt = t + 3.5 + Math.random() * 6;
+      }
+      const b = this.bolt;
+      if (!b) return;
+      const age = t - b.t0;
+      if (age > 0.32) {
+        this.bolt = null;
+        return;
+      }
+      // Light flash, local to Mordor.
+      f.fillStyle = `rgba(255,248,226,${(0.16 + 0.08 * night) * (1 - age / 0.32)})`;
+      f.fillRect(MORDOR.x, MORDOR.y, MORDOR.w, MORDOR.h);
+      if (age < 0.08 || (age > 0.14 && age < 0.22)) {
+        const pts = this.boltPts;
+        f.fillStyle = '#fff6c8';
+        for (let i = 0; i < b.n - 1; i++) {
+          const x0 = pts[i * 2], y0 = pts[i * 2 + 1], x1 = pts[i * 2 + 2], y1 = pts[i * 2 + 3];
+          const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1;
+          for (let k = 0; k <= steps; k++) f.fillRect(Math.round(x0 + ((x1 - x0) * k) / steps), Math.round(y0 + ((y1 - y0) * k) / steps), 1, 1);
+        }
       }
     }
 

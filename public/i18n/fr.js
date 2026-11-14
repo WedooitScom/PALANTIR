@@ -110,6 +110,8 @@
     'log.websearch': '{actor} interroge les étoiles : « {q} »',
     'log.webfetch': '{actor} consulte les archives de {host}',
     'log.bashTest': "{actor} met les tests à l'épreuve : {cmd}",
+    'log.testFail': 'Les tests échouent pour {project}{tag} : la pluie tombe sur ses terres',
+    'log.testPass': 'Les tests passent à nouveau pour {project}{tag} : le ciel se dégage',
     'log.bashGit': '{actor} sonne le cor de git : {cmd}',
     'log.bashInstall': '{actor} charge les poneys : {cmd}',
     'log.bashBuild': '{actor} concasse des rochers : {cmd}',
@@ -326,6 +328,12 @@
     'legend.campfire.d': 'au repos',
     'legend.eagle': 'Aigle',
     'legend.eagle.d': 'message entre agents',
+    'legend.troop': 'Troupe en marche',
+    'legend.troop.d': 'un sous-agent part de la Comté rejoindre son poste',
+    'legend.rain': 'Pluie',
+    'legend.rain.d': 'des tests échouent',
+    'legend.storm': 'Orage sur le Mordor',
+    'legend.storm.d': 'limite 5 h ou 7 j presque atteinte',
     'legend.sep': ' = ',
 
     // ------------------------------------------------------------ son

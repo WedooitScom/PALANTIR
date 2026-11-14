@@ -28,7 +28,7 @@ npm run uninstall-hooks   # les retire
 - L'installation est idempotente, ne touche qu'à la clé `hooks`, conserve tes hooks existants et
   sauvegarde le fichier dans `~/.claude/settings.json.bak-lotr`.
 - `--dry-run` affiche le résultat sans rien écrire ; `CLAUDE_SETTINGS=/chemin/settings.json` cible un autre fichier.
-- Événements écoutés : SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Notification, Stop, SubagentStop, SessionEnd.
+- Événements écoutés : SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure (échecs d'outils, ex. tests qui échouent → pluie sur la carte ; relance `npm run install-hooks` pour l'ajouter), Notification, Stop, SubagentStop, SessionEnd.
 - Le script `hooks/send-event.sh` envoie le JSON du hook au serveur avec `curl` (timeout 1 s) et sort
   toujours en code 0, silencieusement : il ne bloque jamais Claude Code, même si la carte est éteinte.
 - Il ajoute l'en-tête `X-LOTR-Origin` (où tourne la session, pour « Aller à cette session ») avec une liste

@@ -26,13 +26,15 @@ export const EVENTS = [
   'UserPromptSubmit',
   'PreToolUse',
   'PostToolUse',
+  // Tool errors (e.g. a failing test command, non-zero exit code): rain on the map.
+  'PostToolUseFailure',
   'Notification',
   'Stop',
   'SubagentStop',
   'SessionEnd',
 ];
 // Events whose hooks are filtered by a tool-name matcher.
-export const WITH_MATCHER = new Set(['PreToolUse', 'PostToolUse']);
+export const WITH_MATCHER = new Set(['PreToolUse', 'PostToolUse', 'PostToolUseFailure']);
 
 export function shQuote(s) {
   return `'${String(s).replace(/'/g, `'\\''`)}'`;

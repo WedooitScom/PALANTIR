@@ -402,6 +402,7 @@
   }
 
   function applySnapshot(snap) {
+    scene.quietSpawn(); // what the snapshot brings appears in place (no marching troops)
     state.agents.clear();
     for (const a of snap.agents || []) state.agents.set(a.id, a);
     // What is already there when the page (re)connects never makes a sound.
@@ -532,8 +533,8 @@
         g.node.title += `\n— ${fr('gauge.' + k)} : ${fr('gauge.' + k + '.what')}.`;
       }
     }
-    const five = u.five && u.five.pct != null && !(u.five.resetsAt && !fmtLeft(u.five.resetsAt)) ? u.five.pct : 0;
-    scene.usage = { fivePct: five };
+    const live = (w) => (w && w.pct != null && !(w.resetsAt && !fmtLeft(w.resetsAt)) ? w.pct : 0);
+    scene.usage = { fivePct: live(u.five), sevenPct: live(u.seven) };
   }
   setInterval(renderReserves, 1000);
 
@@ -703,6 +704,9 @@
           Sound.sfx.play('fanfare');
         }
         break;
+      case 'testFail':
+        Sound.sfx.play('rain');
+        break;
       case 'usage':
         if (e.reset) Sound.sfx.play('sunrise');
         else if (Number(e.level) >= 80) Sound.sfx.play('drum');
@@ -718,6 +722,8 @@
       night: scene.forceNight || (prefs.night && window.LOTRMap.nightAmount(new Date()) > 0.19),
       coding: act.some((a) => a.status === 'coding'),
       calm: !act.some((a) => a.status !== 'idle'),
+      rain: scene.weather.rain,
+      storm: scene.weather.storm,
     };
   });
 
@@ -971,7 +977,7 @@
 
   // ------------------------------------------------------------ legend
 
-  const LEGEND = ['hobbit', 'dwarf', 'wizard', 'scout', 'painter', 'troll', 'beacon', 'campfire', 'eagle'];
+  const LEGEND = ['hobbit', 'dwarf', 'wizard', 'scout', 'painter', 'troll', 'beacon', 'campfire', 'eagle', 'troop', 'rain', 'storm'];
   const legendCanvases = [];
   const legendList = $('#legendList');
   function renderLegend() {

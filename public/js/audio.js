@@ -825,6 +825,20 @@
     wind: { dur: 1.2, ambient: true, fn(c, t, out) {
       noise(c, { t, dur: 1.2, peak: 0.05, filter: 'bandpass', freq: 300, freq2: 900, sweep: 0.6, freq3: 380, q: 1.5, attack: 0.5, out });
     } },
+    // Rain (failing tests): a soft hiss with scattered drops.
+    rain: { dur: 1.8, ambient: true, fn(c, t, out) {
+      noise(c, { t, dur: 1.8, peak: 0.03, filter: 'highpass', freq: 2400, attack: 0.5, out });
+      noise(c, { t, dur: 1.8, peak: 0.02, filter: 'bandpass', freq: 900, q: 0.8, attack: 0.6, out });
+      for (let i = 0; i < 16; i++) {
+        noise(c, { t: t + 0.2 + Math.random() * 1.4, dur: 0.012, peak: 0.008 + Math.random() * 0.02, filter: 'bandpass', freq: 3000 + Math.random() * 2500, q: 4, out });
+      }
+    } },
+    // Distant thunder over Mordor (limit nearly reached): a low rolling rumble.
+    thunder: { dur: 2, ambient: true, fn(c, t, out) {
+      noise(c, { t, dur: 0.25, peak: 0.05, filter: 'lowpass', freq: 900, freq2: 300, attack: 0.01, out });
+      noise(c, { t: t + 0.1, dur: 1.9, peak: 0.07, filter: 'lowpass', freq: 220, freq2: 90, sweep: 1.6, attack: 0.15, out });
+      tone(c, { type: 'sine', f: 55, f2: 38, t: t + 0.1, dur: 1.4, peak: 0.04, attack: 0.08, out });
+    } },
     fire: { dur: 1.2, ambient: true, fn(c, t, out) {
       noise(c, { t, dur: 1.2, peak: 0.02, filter: 'lowpass', freq: 220, attack: 0.3, out });
       for (let i = 0; i < 12; i++) {
@@ -869,7 +883,8 @@
 
   // ------------------------------------------------------------ ambient
   // One tiny sound every 60 to 180 s, chosen from the state of the map given by the app:
-  // birds by day / owl at night, distant hammer when agents code, wind or campfire when all is calm.
+  // birds by day / owl at night, distant hammer when agents code, wind or campfire when all is calm,
+  // rain when tests fail, thunder when Mordor's storm rages.
 
   let ambientProvider = null;
   let ambientTimer = null;
@@ -877,6 +892,8 @@
   function pickAmbient(st) {
     const creature = st && st.night ? 'owl' : 'birds';
     const r = Math.random();
+    if (st && st.storm && r < 0.5) return 'thunder';
+    if (st && st.rain && r < 0.6) return 'rain';
     if (st && st.coding) return r < 0.7 ? 'hammer' : creature;
     if (st && st.calm) return r < 0.35 ? 'wind' : r < 0.7 ? 'fire' : creature;
     return creature;

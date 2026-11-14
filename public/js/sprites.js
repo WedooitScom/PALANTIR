@@ -118,6 +118,15 @@
     logs: ['n.....n', '.nN.Nn.', '..NNN..'],
     eagle_0: ['bB...Bb..', '.bB.Bb...', '..bbbbbwy', '...BBB...'],
     eagle_1: ['...bbbb..', '..bbbbbwy', '.bB.Bb...', 'bB...Bb..'],
+    // Porter of a marching troop: a small hobbit bent under a big pack (bedroll on top), facing right.
+    porter_0: [
+      '.QQQ....', 'nnnn.hh.', 'nNNnhhhh', 'nNnn.sxs', 'nnNn.ss.',
+      '.nngyyg.', '..ggyygs', '...bbbb.', '...b..b.', '..ss..ss',
+    ],
+    porter_1: [
+      '.QQQ....', 'nnnn.hh.', 'nNNnhhhh', 'nNnn.sxs', 'nnNn.ss.',
+      '.nngyyg.', '..ggyygs', '...bbbb.', '....bb..', '...ssss.',
+    ],
     letter: ['qqq', 'QqQ'],
     glyph_z: ['www', '.w.', 'www'],
     glyph_excl: ['rr', 'rr', 'rr', '..', 'rr'],
@@ -320,6 +329,40 @@
     }
   }
 
+  // Second porter of a troop: blue cloak.
+  const PORTER_REMAP = { g: 'u', G: 'U' };
+  /** Porter of a marching troop at its feet (fx, fy); o: { flip, alpha, alt (blue cloak) }. */
+  function drawPorter(ctx, fx, fy, t, o) {
+    o = o || {};
+    const name = Math.floor(t * 6) % 2 ? 'porter_1' : 'porter_0';
+    draw(ctx, name, fx - 4, fy - 10, { flip: o.flip, alpha: o.alpha, remap: o.alt ? PORTER_REMAP : null });
+  }
+
+  /** Legend: a small rain cloud (dark when stormy) with falling drops / a lightning bolt. */
+  function drawWeatherIcon(c, t, storm) {
+    const cloud = storm ? ['#3a3442', '#2a2430'] : ['#a9b0ba', '#868d98'];
+    const blobs = [[5, 6, 4], [10, 4, 5], [15, 6, 4]];
+    for (let y = 0; y < 11; y++) {
+      for (let x = 0; x < 21; x++) {
+        let inside = false;
+        for (const [bx, by, br] of blobs) if ((x - bx) ** 2 + ((y - by) * 1.5) ** 2 < br * br) inside = true;
+        if (!inside) continue;
+        c.fillStyle = y > 6 ? cloud[1] : cloud[0];
+        c.fillRect(x, y, 1, 1);
+      }
+    }
+    c.fillStyle = storm ? '#9fb0d0' : '#7fa6d8';
+    for (let i = 0; i < 6; i++) {
+      const x = 3 + i * 3;
+      const y = 10 + ((Math.floor(t * 14) + i * 5) % 10);
+      c.fillRect(x - Math.floor((y - 10) / 4), y, 1, 2);
+    }
+    if (storm && Math.floor(t * 2.5) % 3 === 0) {
+      c.fillStyle = '#fff6c8';
+      for (const [x, y] of [[11, 9], [10, 10], [10, 11], [9, 12], [10, 13], [11, 13], [10, 14], [9, 15], [9, 16]]) c.fillRect(x, y, 1, 1);
+    }
+  }
+
   function drawEagle(ctx, x, y, t, flip) {
     const s = size('eagle_0');
     draw(ctx, Math.floor(t * 7) % 2 ? 'eagle_1' : 'eagle_0', x - Math.floor(s.w / 2), y - 2, { flip });
@@ -350,6 +393,13 @@
       case 'beacon': drawBeacon(c, fx + 2, fy, t, true); break;
       case 'campfire': drawAvatar(c, 'hobbit', fx - 2, fy, t, { pose: 'sit' }); drawCampfire(c, fx + 7, fy, t); break;
       case 'eagle': drawEagle(c, fx + 2, 10, t, false); break;
+      case 'troop':
+        drawPorter(c, fx - 5, fy, t, { alt: true });
+        drawPorter(c, fx + 2, fy, t + 0.3, {});
+        drawAvatar(c, 'dwarf', fx + 9, fy, t, { walking: true });
+        break;
+      case 'rain': drawWeatherIcon(c, t, false); break;
+      case 'storm': drawWeatherIcon(c, t, true); break;
       default: break;
     }
     const ctx = canvas.getContext('2d');
@@ -359,7 +409,7 @@
   }
 
   window.Sprites = {
-    PAL, DEFS, get, size, draw, drawFeet, drawAvatar, drawWork, drawCampfire, drawBeacon, drawEagle, drawIcon,
+    PAL, DEFS, get, size, draw, drawFeet, drawAvatar, drawWork, drawCampfire, drawBeacon, drawEagle, drawPorter, drawIcon,
     strikeIndex, strikeDown,
   };
 })();

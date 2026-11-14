@@ -325,6 +325,9 @@
     'legend.sep': ' = ',
 
     // ------------------------------------------------------------ son
+    'sound.allOn': 'Son : activé (clic : tout couper · clic droit ou appui long : réglages du son)',
+    'sound.allOff': 'Son : tout est coupé (clic : réactiver · clic droit ou appui long : réglages du son)',
+    'sound.muteToggle': 'Tout couper',
     'sound.sfxOn': 'Effets sonores : activés (clic droit ou appui long : réglages du son)',
     'sound.sfxOff': 'Effets sonores : coupés (clic droit ou appui long : réglages du son)',
     'sound.musicOn': "Musique d'ambiance : activée (clic droit ou appui long : réglages du son)",

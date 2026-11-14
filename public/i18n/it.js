@@ -308,6 +308,12 @@
     'legend.eagle.d': 'messaggio tra agenti',
     'legend.sep': ' = ',
 
+    'sound.allOn': 'Audio: attivo (clic: silenzia tutto · clic destro o pressione lunga: impostazioni audio)',
+
+    'sound.allOff': 'Audio: tutto silenziato (clic: riattiva · clic destro o pressione lunga: impostazioni audio)',
+
+    'sound.muteToggle': 'Silenzia tutto',
+
     'sound.sfxOn': 'Effetti sonori: attivi (clic destro o pressione lunga: impostazioni audio)',
     'sound.sfxOff': 'Effetti sonori: disattivati (clic destro o pressione lunga: impostazioni audio)',
     'sound.musicOn': 'Musica di sottofondo: attiva (clic destro o pressione lunga: impostazioni audio)',

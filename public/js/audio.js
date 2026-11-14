@@ -85,12 +85,14 @@
     return x * x * 1.5625;
   };
   let bus = null;
+  let muted = false; // global mute (🔊 button): the master bus goes to 0
+  const masterGain = () => (muted ? 0 : curve(levels.volume));
   function getBus() {
     const c = getCtx();
     if (!c) return null;
     if (!bus) {
       const master = c.createGain();
-      master.gain.value = curve(levels.volume);
+      master.gain.value = masterGain();
       master.connect(c.destination);
       const duck = c.createGain();
       duck.gain.value = 1;
@@ -115,9 +117,15 @@
     }
     if (!bus || !ctx) return;
     const t = ctx.currentTime;
-    bus.master.gain.setTargetAtTime(curve(levels.volume), t, 0.05);
+    bus.master.gain.setTargetAtTime(masterGain(), t, 0.05);
     bus.music.gain.setTargetAtTime(curve(levels.music), t, 0.05);
     bus.sfx.gain.setTargetAtTime(curve(levels.sfx), t, 0.05);
+  }
+
+  function setMuted(on) {
+    muted = !!on;
+    if (!bus || !ctx) return;
+    bus.master.gain.setTargetAtTime(masterGain(), ctx.currentTime, 0.03);
   }
 
   // Music dips briefly under important sound effects.
@@ -916,6 +924,10 @@
       if (typeof fn === 'function') stateListeners.push(fn);
     },
     setLevels,
+    setMuted,
+    get muted() {
+      return muted;
+    },
     music: {
       start: startMusic,
       stop: stopMusic,
@@ -966,6 +978,7 @@
       get levels() {
         return {
           ...levels,
+          muted,
           masterGain: bus ? bus.master.gain.value : 0,
           musicBusGain: bus ? bus.music.gain.value : 0,
           sfxBusGain: bus ? bus.sfx.gain.value : 0,

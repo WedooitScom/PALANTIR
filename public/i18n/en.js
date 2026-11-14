@@ -308,6 +308,12 @@
     'legend.eagle.d': 'message between agents',
     'legend.sep': ' = ',
 
+    'sound.allOn': 'Sound: on (click: mute everything · right-click or long press: sound settings)',
+
+    'sound.allOff': 'Sound: everything muted (click: unmute · right-click or long press: sound settings)',
+
+    'sound.muteToggle': 'Mute everything',
+
     'sound.sfxOn': 'Sound effects: on (right-click or long press: sound settings)',
     'sound.sfxOff': 'Sound effects: off (right-click or long press: sound settings)',
     'sound.musicOn': 'Background music: on (right-click or long press: sound settings)',

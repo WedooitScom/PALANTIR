@@ -108,6 +108,21 @@ h1 {
 .btn:disabled { opacity: 0.6; cursor: wait; }
 .btn.on { background: var(--gold); }
 .btn.icon { padding: 2px 6px; }
+/* Off: dimmed, with a red bar across the icon. */
+.btn.icon.off { position: relative; background: #8a7a5c; }
+.btn.icon.off::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  background: #e0301e;
+  box-shadow: 0 0 0 1px #120b06;
+  transform: rotate(-35deg);
+  pointer-events: none;
+}
 .btn.small { padding: 0 8px; line-height: 20px; font-size: 18px; }
 .btn.ghost { background: transparent; box-shadow: none; border-color: transparent; color: inherit; font-size: 22px; }
 #btnDemo { font-family: var(--pixel); font-size: 9px; line-height: 22px; }

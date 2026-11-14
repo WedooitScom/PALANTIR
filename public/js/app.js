@@ -108,7 +108,7 @@
   // sfx: effects (beep + alerts + ambient), on by default; music off by default; volumes 0..1.
   let prefsMigrated = false;
   const prefs = (() => {
-    const d = { sfx: true, music: false, night: true, legend: true, side: true, volume: 0.8, musicVolume: 0.8, sfxVolume: 0.8, lang: null };
+    const d = { mute: false, sfx: true, music: false, night: true, legend: true, side: true, volume: 0.8, musicVolume: 0.8, sfxVolume: 0.8, lang: null };
     let saved = {};
     try {
       saved = JSON.parse(localStorage.getItem('lotr-prefs') || '{}') || {};
@@ -128,6 +128,7 @@
       p[k] = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8;
     }
     p.sfx = p.sfx !== false;
+    p.mute = p.mute === true;
     if (!I18N.isLang(p.lang)) p.lang = null; // null: from the app (native), else navigator.language
     return p;
   })();
@@ -972,22 +973,36 @@
   };
 
   function applySound() {
-    $('#btnSound').textContent = prefs.sfx ? '🔊' : '🔈';
-    $('#btnSound').title = prefs.sfx ? t('sound.sfxOn') : t('sound.sfxOff');
+    const b = $('#btnSound');
+    b.textContent = '🔊';
+    b.classList.toggle('off', prefs.mute);
+    b.setAttribute('aria-pressed', String(prefs.mute));
+    b.title = t(prefs.mute ? 'sound.allOff' : 'sound.allOn');
+    Sound.setMuted(prefs.mute);
     Sound.sfx.setEnabled(prefs.sfx);
     syncSoundPanel();
   }
+  /** 🔊 button: cuts (or brings back) everything, music and effects. */
+  function toggleMute() {
+    prefs.mute = !prefs.mute;
+    savePrefs();
+    applySound();
+    if (!prefs.mute) beep();
+  }
+  /** Effects only (settings panel). */
   function toggleSfx() {
     prefs.sfx = !prefs.sfx;
     savePrefs();
     applySound();
     beep();
   }
-  onPress($('#btnSound'), toggleSfx, openSoundPanel);
+  onPress($('#btnSound'), toggleMute, openSoundPanel);
 
   /** textOnly: language change, the music itself is left alone. */
   function applyMusic(textOnly) {
-    $('#btnMusic').textContent = prefs.music ? '🎵' : '🔇';
+    $('#btnMusic').textContent = '🎵';
+    $('#btnMusic').classList.toggle('off', !prefs.music);
+    $('#btnMusic').setAttribute('aria-pressed', String(prefs.music));
     $('#btnMusic').title = prefs.music ? t('sound.musicOn') : t('sound.musicOff');
     if (textOnly === true) syncSoundPanel();
     else if (prefs.music) Sound.music.start();
@@ -1074,6 +1089,7 @@
       row.append(input, document.createTextNode(' '), tel('span', null, text));
       return { row, input, get };
     };
+    const muteCheck = check('sound.muteToggle', () => prefs.mute, toggleMute);
     const sfxCheck = check('sound.sfxToggle', () => prefs.sfx, toggleSfx);
     const musicCheck = check('sound.musicToggle', () => prefs.music, toggleMusic);
 
@@ -1109,10 +1125,10 @@
     const hint = tel('p', 'sp-hint', NATIVE ? 'sound.hintApp' : 'sound.hintBrowser');
 
     box.append(head, slider('volume', 'sound.volMaster'), slider('musicVolume', 'sound.volMusic'), slider('sfxVolume', 'sound.volSfx'),
-      sfxCheck.row, musicCheck.row, src, buttons, hint);
+      muteCheck.row, sfxCheck.row, musicCheck.row, src, buttons, hint);
     document.body.append(box);
     applyStatic(box);
-    return { box, sliders, checks: [sfxCheck, musicCheck], srcName, back };
+    return { box, sliders, checks: [muteCheck, sfxCheck, musicCheck], srcName, back };
   })();
 
   function applyLevels() {

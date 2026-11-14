@@ -10,6 +10,8 @@ struct AgentInfo {
     let cwd: String
     let status: String
     let waitingMessage: String?
+    /// The same in French (gloss of an invented language).
+    let waitingMessageFr: String?
     let waitingSince: Double
     let demo: Bool
     /// Where the session runs (sessions only), validated again here: see SessionOrigin.
@@ -27,9 +29,11 @@ struct AgentInfo {
         origin = SessionOrigin(d["origin"])
         if let w = d["waiting"] as? [String: Any] {
             waitingMessage = AgentInfo.waitText(w)
+            waitingMessageFr = AgentInfo.waitText(w, lang: "fr")
             waitingSince = (w["since"] as? NSNumber)?.doubleValue ?? 0
         } else {
             waitingMessage = nil
+            waitingMessageFr = nil
             waitingSince = 0
         }
     }
@@ -38,13 +42,13 @@ struct AgentInfo {
 
     /// The waiting message in the app's language when it is one of the known messages ({ key, params }
     /// in waiting.i), else the French text sent by the server (a question typed by Claude, a demo text).
-    static func waitText(_ w: [String: Any]) -> String {
+    static func waitText(_ w: [String: Any], lang: String? = nil) -> String {
         let fallback = w["message"] as? String ?? ""
         guard let i = w["i"] as? [String: Any], let key = i["key"] as? String, key.hasPrefix("wait."),
               L10n.fr[key] != nil else { return fallback }
         var args: [String: String] = [:]
         for (k, v) in i["params"] as? [String: Any] ?? [:] { if let s = v as? String { args[k] = String(s.prefix(80)) } }
-        return L10n.t(key, args)
+        return L10n.tl(lang ?? L10n.lang, key, args)
     }
 }
 

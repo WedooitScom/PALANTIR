@@ -134,15 +134,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if state == "denied" {
                 let alert = NSAlert()
                 alert.messageText = L10n.t("alert.deniedTitle")
-                alert.informativeText = L10n.t("alert.deniedText")
-                alert.addButton(withTitle: L10n.t("alert.ok"))
+                alert.informativeText = L10n.tb("alert.deniedText")
+                alert.addButton(withTitle: L10n.tm("alert.ok"))
                 NSApp.activate(ignoringOtherApps: true)
                 alert.runModal()
             } else if !tested {
                 let alert = NSAlert()
                 alert.messageText = L10n.t("alert.notAuthTitle")
-                alert.informativeText = L10n.t("alert.notAuthText", ["state": state])
-                alert.addButton(withTitle: L10n.t("alert.ok"))
+                alert.informativeText = L10n.tb("alert.notAuthText", ["state": state])
+                alert.addButton(withTitle: L10n.tm("alert.ok"))
                 alert.runModal()
             }
         }
@@ -152,9 +152,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.alertStyle = .critical
         alert.messageText = L10n.t("alert.nodeTitle")
-        alert.informativeText = L10n.t("alert.nodeText")
-        alert.addButton(withTitle: L10n.t("alert.ok"))
-        alert.addButton(withTitle: L10n.t("alert.nodeOpen"))
+        alert.informativeText = L10n.tb("alert.nodeText")
+        alert.addButton(withTitle: L10n.tm("alert.ok"))
+        alert.addButton(withTitle: L10n.tm("alert.nodeOpen"))
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertSecondButtonReturn {
             NSWorkspace.shared.open(URL(string: "https://nodejs.org/")!)
@@ -169,10 +169,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let confirm = NSAlert()
         confirm.messageText = L10n.t(install ? "hooks.installQ" : "hooks.uninstallQ")
         confirm.informativeText = install
-            ? L10n.t("hooks.installText", ["settings": settings, "script": hookCopy])
-            : L10n.t("hooks.uninstallText", ["settings": settings])
-        confirm.addButton(withTitle: L10n.t(install ? "hooks.install" : "hooks.uninstall"))
-        confirm.addButton(withTitle: L10n.t("hooks.cancel"))
+            ? L10n.tb("hooks.installText", ["settings": settings, "script": hookCopy])
+            : L10n.tb("hooks.uninstallText", ["settings": settings])
+        confirm.addButton(withTitle: L10n.tm(install ? "hooks.install" : "hooks.uninstall"))
+        confirm.addButton(withTitle: L10n.tm("hooks.cancel"))
         NSApp.activate(ignoringOtherApps: true)
         guard confirm.runModal() == .alertFirstButtonReturn else { return }
 
@@ -200,7 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         done.alertStyle = p.terminationStatus == 0 ? .informational : .warning
         done.messageText = p.terminationStatus == 0 ? L10n.t(install ? "hooks.installed" : "hooks.uninstalled") : L10n.t("hooks.failed")
         done.informativeText = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            + (install && p.terminationStatus == 0 ? "\n\n" + L10n.t("hooks.relaunch") : "")
+            + (install && p.terminationStatus == 0 ? "\n\n" + L10n.tb("hooks.relaunch") : "")
         done.runModal()
     }
 
@@ -234,7 +234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let a = NSAlert()
         a.messageText = title
         a.informativeText = text
-        a.addButton(withTitle: L10n.t("alert.ok"))
+        a.addButton(withTitle: L10n.tm("alert.ok"))
         NSApp.activate(ignoringOtherApps: true)
         a.runModal()
     }
@@ -246,41 +246,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: L10n.t("main.about"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: L10n.tm("main.about"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: L10n.t("menu.chooseMusic"), action: #selector(chooseMusic), keyEquivalent: "").target = self
-        appMenu.addItem(withTitle: L10n.t("menu.resetMusic"), action: #selector(resetMusic), keyEquivalent: "").target = self
+        appMenu.addItem(withTitle: L10n.tm("menu.chooseMusic"), action: #selector(chooseMusic), keyEquivalent: "").target = self
+        appMenu.addItem(withTitle: L10n.tm("menu.resetMusic"), action: #selector(resetMusic), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: L10n.t("main.hide"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        let others = appMenu.addItem(withTitle: L10n.t("main.hideOthers"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: L10n.tm("main.hide"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let others = appMenu.addItem(withTitle: L10n.tm("main.hideOthers"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         others.keyEquivalentModifierMask = [.command, .option]
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: L10n.t("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: L10n.tm("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         main.addItem(appItem)
 
         let editItem = NSMenuItem()
         let edit = NSMenu(title: L10n.t("main.edit"))
-        edit.addItem(withTitle: L10n.t("main.copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: L10n.t("main.paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: L10n.t("main.selectAll"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(withTitle: L10n.tm("main.copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: L10n.tm("main.paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: L10n.tm("main.selectAll"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = edit
         main.addItem(editItem)
 
         let viewItem = NSMenuItem()
         let view = NSMenu(title: L10n.t("main.view"))
-        let fs = view.addItem(withTitle: L10n.t("main.fullScreen"), action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
+        let fs = view.addItem(withTitle: L10n.tm("main.fullScreen"), action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
         fs.keyEquivalentModifierMask = [.command, .control]
-        view.addItem(withTitle: L10n.t("main.reload"), action: #selector(reloadMap), keyEquivalent: "r").target = self
+        view.addItem(withTitle: L10n.tm("main.reload"), action: #selector(reloadMap), keyEquivalent: "r").target = self
         viewItem.submenu = view
         main.addItem(viewItem)
 
         let windowItem = NSMenuItem()
         let win = NSMenu(title: L10n.t("main.window"))
-        win.addItem(withTitle: L10n.t("main.close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        win.addItem(withTitle: L10n.t("main.minimize"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        win.addItem(withTitle: L10n.tm("main.close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        win.addItem(withTitle: L10n.tm("main.minimize"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         win.addItem(.separator())
-        win.addItem(withTitle: L10n.t("main.map"), action: #selector(showMap), keyEquivalent: "0").target = self
+        win.addItem(withTitle: L10n.tm("main.map"), action: #selector(showMap), keyEquivalent: "0").target = self
         windowItem.submenu = win
         main.addItem(windowItem)
         NSApp.windowsMenu = win

@@ -158,6 +158,12 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
 
     private var lastWaitingHTML = ""
 
+    /// Invented language: the French text on a small line (escaped), else nothing.
+    private func gloss(_ key: String) -> String {
+        guard let g = L10n.gloss(key) else { return "" }
+        return "<p style=\"opacity:.6;font-size:12px;font-style:italic;margin-top:0\">\(escape(g))</p>"
+    }
+
     private func renderWaiting() {
         let detail = statusText() ?? L10n.t("waiting.starting", ["port": String(AppPaths.port)])
         let lang = (L10n.langs.first { $0.code == L10n.lang }?.fantasy ?? false) ? "fr" : L10n.lang
@@ -172,8 +178,8 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
         .fire{font-size:30px;animation:f 1s steps(2) infinite}
         @keyframes f{50%{opacity:.4}}
         </style><body><div class="wrap"><div class="card">
-        <div class="fire">🔥</div><h1>\(escape(L10n.t("waiting.title")))</h1>
-        <p>\(escape(detail))</p><p style="opacity:.7;font-size:13px">\(escape(L10n.t("waiting.retry")))</p>
+        <div class="fire">🔥</div><h1>\(escape(L10n.t("waiting.title")))</h1>\(gloss("waiting.title"))
+        <p>\(escape(detail))</p><p style="opacity:.7;font-size:13px">\(escape(L10n.t("waiting.retry")))</p>\(gloss("waiting.retry"))
         </div></div></body></html>
         """
         guard html != lastWaitingHTML else { return }

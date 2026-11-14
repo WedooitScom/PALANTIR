@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const I18N = require('../public/js/i18n');
 const { Store } = require('../lib/store');
 
-const CODES = ['fr', 'en', 'it', 'es', 'ja', 'elf', 'dwarf', 'ent'];
+const CODES = ['fr', 'en', 'it', 'es', 'ja']; // elf / dwarf / ent: invented from fr (public/js/conlang.js)
 const D = Object.fromEntries(CODES.map((c) => [c, require(`../public/i18n/${c}`)]));
 for (const c of CODES) I18N.register(c, D[c]);
 
@@ -56,13 +56,15 @@ test('interpolation, variants, plurals and nested messages', () => {
   assert.equal(I18N.localeOf('dwarf'), 'fr-FR');
   // Nested message in another language + capital letter at the start of the sentence (elf).
   assert.equal(I18N.tl('it', 'log.start', { where: { key: 'terr.shire.where' }, project: 'X' }), 'Una nuova compagnia si risveglia nella Contea: X');
-  assert.match(I18N.tl('elf', 'log.read', { actor: { key: 'actor.think', params: { project: 'P', tag: '' } }, file: 'a.js' }), /^Le mage de P lit a\.js/);
+  const elfRead = I18N.tl('elf', 'log.read', { actor: { key: 'actor.think', params: { project: 'P', tag: '' } }, file: 'a.js' });
+  assert.match(elfRead, /^[A-Z]\S* .* P .*a\.js$/);
+  assert.doesNotMatch(elfRead, /magicien|déchiffre/);
 });
 
-test('fallback key by key: fantasy language -> French, real language -> French', () => {
-  // dwarf has no detail.close: French.
-  assert.equal(I18N.tl('dwarf', 'detail.close'), 'Fermer');
-  assert.equal(I18N.tl('elf', 'bubble.bagFull'), 'Mon bagage déborde !');
+test('fallback key by key: real language -> French; invented languages come from French', () => {
+  assert.notEqual(I18N.tl('dwarf', 'detail.close'), 'Fermer');
+  assert.equal(I18N.tl('dwarf', 'detail.close'), I18N.conlang.translate('dwarf', 'Fermer'));
+  assert.equal(I18N.tl('it', 'nope.key'), 'nope.key');
   assert.equal(I18N.detect('ja-JP'), 'ja');
   assert.equal(I18N.detect('de-DE'), 'fr');
   assert.equal(I18N.detect(undefined), 'fr');
@@ -80,7 +82,7 @@ test('a chronicle entry is rendered in several languages from key/params', () =>
   assert.equal(I18N.render(e, 'en'), "LOTRAgent's dwarf hammers server.js");
   assert.equal(I18N.render(e, 'es'), 'El enano de LOTRAgent martillea server.js');
   assert.equal(I18N.render(e, 'ja'), 'LOTRAgentのドワーフがserver.jsを打ち鍛えている');
-  assert.match(I18N.render(e, 'dwarf'), /^Le nain de LOTRAgent martèle server\.js\. Du solide/);
+  assert.match(I18N.render(e, 'dwarf'), /^\S+ \S+ \S+ LOTRAgent \S+ server\.js$/);
   // Old entries (no key) keep their text.
   assert.equal(I18N.render({ text: 'Ancienne entrée' }, 'en'), 'Ancienne entrée');
 
@@ -104,7 +106,7 @@ test('demo texts are translated too (demo.* keys)', () => {
   assert.equal(I18N.render(s.chronicle.at(-1), 'en'), 'A new quest for P: “vrai prompt”');
 });
 
-test('ent: French slowed down, params kept intact, short labels left readable', () => {
+test('ent: invented text slowed down, params kept intact, short labels left readable', () => {
   const slow = I18N.entify('Le nain forge le fichier principal', 'k');
   assert.match(slow, /^(Hrrm|Hoom|Hm, hoom)/);
   assert.match(slow, /le… nain… forge…/);
@@ -113,14 +115,11 @@ test('ent: French slowed down, params kept intact, short labels left readable', 
   assert.equal(I18N.entify('Copié !'), 'Copié !');
   // Deterministic (no flicker on re-render).
   assert.equal(I18N.entify('Le nain forge le fichier principal', 'k'), slow);
-  // Fallback from French: slowed, file names untouched.
+  // Invented words slowed, project names untouched.
   const txt = I18N.tl('ent', 'log.watch', { actor: { key: 'actor.running', params: { project: 'api-gateway', tag: '' } } });
-  assert.match(txt, /le… troll… de… api-gateway… guette…/);
-  const prompt = I18N.tl('ent', 'gauge.tipUsed', { pct: '52 %' });
-  assert.equal(prompt, '52 % utilisés.'); // 3 words or less: left readable (already ends with a dot)
-  // Custom ent phrase for a key message.
-  const edit = I18N.tl('ent', 'log.edit', { actor: { key: 'actor.coding', params: { project: 'LOTRAgent', tag: '' } }, file: 'server.js', v: 0 });
-  assert.equal(edit, 'Hrrm… le… nain… de… LOTRAgent… a… martelé… server.js… il… y… a… peu… d’hivers…');
+  assert.match(txt, /^(Hrrm|Hoom|Hm, hoom)[^]*laa… boorgaaloom… vaa… api-gateway…/);
+  const used = I18N.tl('ent', 'gauge.tipUsed', { pct: '52 %' });
+  assert.equal(used, '52 % uuloomoo.'); // 3 words or less: left readable (already ends with a dot)
 });
 
 test('dwarf runes: simple Elder Futhark transliteration', () => {

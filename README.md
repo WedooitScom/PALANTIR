@@ -132,10 +132,15 @@ la première fois. Le binaire est compilé pour l'architecture de la machine de 
 
 ## Langues
 
-Bouton drapeau dans l'en-tête : français, English, italiano, español, 日本語, et trois langues de
-fantaisie originales basées sur le français : 🧝 *Elfique* (poétique, titres ornés ✧), ⛏️ *Langue des
-nains* (bourrue, titres doublés en runes Elder Futhark) et 🌳 *Langue des Ents* (très… lente…, et les
-personnages bougent plus lentement). Choix mémorisé (`prefs.lang`), sinon langue du navigateur, sinon
+Bouton drapeau dans l'en-tête : français, English, italiano, español, 日本語, et trois vraies langues
+inventées (vocabulaire original, sans aucun emprunt à Tolkien), illisibles en soi, avec le français en
+glose (infobulle ou petite ligne sous le texte) : 🧝 *Elfique — Velisaine* (fluide, voyelles et
+liquides, titres ornés ✧), ⛏️ *Langue des nains — Zgördrak* (consonnes groupées, titres doublés en runes
+Elder Futhark) et 🌳 *Langue des Ents — Moorvaaloorooma* (mots très longs, voyelles étirées,
+redoublements, et les personnages bougent plus lentement). Le texte français des dictionnaires y est
+traduit mot à mot de façon déterministe (`public/js/conlang.js` : lexique écrit à la main, puis
+générateur de syllabes par hachage, données dans `public/js/conlang-data.js`, partagées avec l'app
+macOS) ; noms de projets, fichiers, commandes et prompts ne sont jamais traduits. Choix mémorisé (`prefs.lang`), sinon langue du navigateur, sinon
 français. Dictionnaires : `public/i18n/<lang>.js` (clé par clé, repli sur le français), moteur :
 `public/js/i18n.js`. Le serveur envoie la chronique et le conseil en `{ key, params }` (avec un `text`
 français de secours), rendus par la page dans la langue choisie. Dans l'app macOS, le menu de la barre de

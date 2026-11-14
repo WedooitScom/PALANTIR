@@ -103,3 +103,11 @@ test('roleFor maps subagent types', () => {
   assert.equal(roleFor('designer'), 'painter');
   assert.equal(roleFor('build-runner'), 'troll');
 });
+
+test('sessions fill the lands in order, starting from the Shire', () => {
+  const s = new Store({ file: null });
+  s.ingest({ hook_event_name: 'SessionStart', session_id: 'sess-zzz-1', cwd: '/tmp/alpha' });
+  s.ingest({ hook_event_name: 'SessionStart', session_id: 'sess-aaa-2', cwd: '/tmp/beta' });
+  assert.equal(s.agents.get('sess-zzz-1').territory, 'shire');
+  assert.equal(s.agents.get('sess-aaa-2').territory, 'bree');
+});

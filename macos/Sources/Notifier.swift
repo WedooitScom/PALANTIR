@@ -20,8 +20,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let content = UNMutableNotificationContent()
         let project = agent.project.isEmpty ? L10n.t("notif.someCompany") : agent.project
         content.title = L10n.t("notif.waitTitle", ["project": project])
-        let message = agent.waitingMessage ?? ""
-        content.body = message.isEmpty ? L10n.t("notif.fires") : message
+        // Invented language: invented title, French body (the gloss), so the question stays readable.
+        let message = (L10n.isFantasy(L10n.lang) ? agent.waitingMessageFr : nil) ?? agent.waitingMessage ?? ""
+        content.body = message.isEmpty ? (L10n.gloss("notif.fires") ?? L10n.t("notif.fires")) : message
         content.sound = .default
         content.threadIdentifier = agent.id
         content.userInfo = ["agentId": agent.id]
@@ -33,8 +34,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func notifyLimit(level: Int, limit: LimitInfo) {
         let content = UNMutableNotificationContent()
         content.title = L10n.t(level >= 95 ? "notif.limit95" : "notif.limit80")
-        var body = L10n.t("notif.limitBody", ["pct": String(Int(limit.pct.rounded()))])
-        if let r = limit.resetsAt, let left = UsageFormat.countdown(to: r) { body += L10n.t("notif.resetIn", ["left": left]) }
+        let fr = L10n.isFantasy(L10n.lang) ? "fr" : L10n.lang
+        var body = L10n.tl(fr, "notif.limitBody", ["pct": String(Int(limit.pct.rounded()))])
+        if let r = limit.resetsAt, let left = UsageFormat.countdown(to: r) { body += L10n.tl(fr, "notif.resetIn", ["left": left]) }
         content.body = body
         content.sound = .default
         content.threadIdentifier = "usage"
@@ -89,7 +91,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func sendTest() {
         let content = UNMutableNotificationContent()
         content.title = L10n.t("notif.testTitle")
-        content.body = L10n.t("notif.testBody")
+        content.body = L10n.gloss("notif.testBody") ?? L10n.t("notif.testBody")
         content.sound = .default
         center.add(UNNotificationRequest(identifier: "test-\(Date().timeIntervalSince1970)", content: content, trigger: nil))
     }

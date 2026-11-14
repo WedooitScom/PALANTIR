@@ -4,7 +4,9 @@ import Foundation
 /// Same 8 languages as the page (public/js/i18n.js). The page tells the app which language it uses
 /// ({type: 'lang'} on the bridge) and the « Langue » submenu of the menu bar tells the page.
 /// Remembered in UserDefaults; before the first choice, the system language (fr/en/it/es/ja), else fr.
-/// Fallback key by key: language -> its base (fr for elf / dwarf / ent) -> fr. Ent: French slowed down.
+/// Fallback key by key: language -> fr. Invented languages (elf / dwarf / ent): the French text is turned
+/// into the invented language (Conlang, same algorithm and data as the page), args left untouched;
+/// gloss() / tm() / tb() give the French next to it (menus, alerts). Ent: also slowed down.
 enum L10n {
     struct Lang {
         let code: String
@@ -12,6 +14,10 @@ enum L10n {
         let name: String
         let locale: String
         let fantasy: Bool
+        /// Name of an invented language in the language itself (empty for the real ones).
+        var native: String { fantasy ? Conlang.name(code) : "" }
+        /// "Elfique — Velisaine".
+        var displayName: String { native.isEmpty ? name : "\(name) — \(native)" }
     }
 
     static let langs: [Lang] = [
@@ -51,23 +57,75 @@ enum L10n {
         return changed
     }
 
+    /// Whether a language is an invented one (and its data is available).
+    static func isFantasy(_ code: String) -> Bool {
+        (langs.first { $0.code == code }?.fantasy ?? false) && Conlang.has(code)
+    }
+
     static var locale: Locale { Locale(identifier: (langs.first { $0.code == lang } ?? langs[0]).locale) }
 
     // MARK: - lookup
 
-    static func t(_ key: String, _ args: [String: String] = [:]) -> String {
-        let l = lang
+    static func t(_ key: String, _ args: [String: String] = [:]) -> String { tl(lang, key, args) }
+
+    static func tl(_ l: String, _ key: String, _ args: [String: String] = [:]) -> String {
         var template: String
-        var slow = false
-        if let v = tables[l]?[key] {
-            template = v
+        if isFantasy(l) {
+            let fr = tables["fr"]?[key] ?? key
+            template = Conlang.translate(l, fr)
+            if l == "ent" && template != fr { template = slowKeeping(template) }
         } else {
-            template = tables["fr"]?[key] ?? key
-            slow = l == "ent"
+            template = tables[l]?[key] ?? tables["fr"]?[key] ?? key
         }
-        if slow { template = entify(template) }
-        for (k, v) in args { template = template.replacingOccurrences(of: "{\(k)}", with: v) }
-        return template
+        return fill(template, args)
+    }
+
+    /// Placeholders replaced by the args, in one pass (an arg is never read as a template).
+    private static func fill(_ template: String, _ args: [String: String]) -> String {
+        guard !args.isEmpty, template.contains("{") else { return template }
+        var out = ""
+        var rest = Substring(template)
+        while let open = rest.firstIndex(of: "{") {
+            out += rest[..<open]
+            if let close = rest[open...].firstIndex(of: "}"), let v = args[String(rest[rest.index(after: open)..<close])] {
+                out += v
+                rest = rest[rest.index(after: close)...]
+            } else {
+                out += "{"
+                rest = rest[rest.index(after: open)...]
+            }
+        }
+        return out + rest
+    }
+
+    /// Ent: slowed down, protected terms of several words (commands, product names) left whole.
+    private static func slowKeeping(_ s: String) -> String {
+        var marked = s
+        var kept: [String] = []
+        for k in Conlang.keepTerms where k.contains(" ") && marked.contains(k) {
+            marked = marked.replacingOccurrences(of: k, with: "{__keep\(kept.count)}")
+            kept.append(k)
+        }
+        var out = entify(marked)
+        for (i, k) in kept.enumerated() { out = out.replacingOccurrences(of: "{__keep\(i)}", with: k) }
+        return out
+    }
+
+    /// French text of a key when the current language is an invented one, else nil.
+    static func gloss(_ key: String, _ args: [String: String] = [:]) -> String? {
+        isFantasy(lang) ? tl("fr", key, args) : nil
+    }
+    /// Menu item / button title: "invented (French)" in an invented language.
+    static func tm(_ key: String, _ args: [String: String] = [:]) -> String {
+        let s = t(key, args)
+        guard let g = gloss(key, args), g != s else { return s }
+        return "\(s) (\(g))"
+    }
+    /// Body text (alerts): the invented text, then the French one.
+    static func tb(_ key: String, _ args: [String: String] = [:]) -> String {
+        let s = t(key, args)
+        guard let g = gloss(key, args), g != s else { return s }
+        return "\(s)\n\n\(g)"
     }
 
     /// "1 compagnie active" / "3 compagnies actives": key.one / key.other.
@@ -76,6 +134,12 @@ enum L10n {
         a["n"] = number(Double(n), 0)
         let one = n == 1 || (lang != "en" && lang != "it" && lang != "es" && lang != "ja" && n == 0)
         return t(key + (one ? ".one" : ".other"), a)
+    }
+    /// French plural, for glosses.
+    static func pluralFr(_ key: String, _ n: Int, _ args: [String: String] = [:]) -> String {
+        var a = args
+        a["n"] = number(Double(n), 0)
+        return tl("fr", key + (n <= 1 ? ".one" : ".other"), a)
     }
 
     static func number(_ v: Double, _ digits: Int) -> String {
@@ -109,7 +173,7 @@ enum L10n {
 
     // MARK: - tables
 
-    static let tables: [String: [String: String]] = ["fr": fr, "en": en, "it": it, "es": es, "ja": ja, "elf": elf, "dwarf": dwarf, "ent": ent]
+    static let tables: [String: [String: String]] = ["fr": fr, "en": en, "it": it, "es": es, "ja": ja]
 
     static let fr: [String: String] = [
         "app.name": "Terre du Milieu",
@@ -126,6 +190,7 @@ enum L10n {
         "menu.limitLine": "{name} : {pct} %",
         "menu.limitReset": " — reset dans {left}",
         "menu.limitsPending": "Limites : en attente de la status line",
+        "menu.limitsHint": "Les limites 5 h / 7 jours n'apparaissent qu'avec une session Claude Code lancée dans un terminal (status line). Jetons du jour : d'après les transcripts.",
         "menu.tokensToday": "Jetons du jour : {n}",
         "menu.unreachable": "Serveur de la carte injoignable",
         "menu.openMap": "Ouvrir la carte",
@@ -256,6 +321,7 @@ enum L10n {
         "menu.limitLine": "{name}: {pct}%",
         "menu.limitReset": " — resets in {left}",
         "menu.limitsPending": "Limits: waiting for the status line",
+        "menu.limitsHint": "The 5 h / 7 day limits only show up with a Claude Code session running in a terminal (status line). Today's tokens: from the transcripts.",
         "menu.tokensToday": "Tokens today: {n}",
         "menu.unreachable": "Map server unreachable",
         "menu.openMap": "Open the map",
@@ -386,6 +452,7 @@ enum L10n {
         "menu.limitLine": "{name}: {pct}%",
         "menu.limitReset": " — reset tra {left}",
         "menu.limitsPending": "Limiti: in attesa della status line",
+        "menu.limitsHint": "I limiti 5 h / 7 giorni compaiono solo con una sessione Claude Code avviata in un terminale (status line). Token di oggi: dai transcript.",
         "menu.tokensToday": "Token di oggi: {n}",
         "menu.unreachable": "Server della mappa irraggiungibile",
         "menu.openMap": "Apri la mappa",
@@ -516,6 +583,7 @@ enum L10n {
         "menu.limitLine": "{name}: {pct} %",
         "menu.limitReset": " — se reinicia en {left}",
         "menu.limitsPending": "Límites: esperando la status line",
+        "menu.limitsHint": "Los límites de 5 h / 7 días solo aparecen con una sesión de Claude Code abierta en un terminal (status line). Tokens de hoy: según los transcripts.",
         "menu.tokensToday": "Tokens de hoy: {n}",
         "menu.unreachable": "Servidor del mapa inaccesible",
         "menu.openMap": "Abrir el mapa",
@@ -646,6 +714,7 @@ enum L10n {
         "menu.limitLine": "{name}：{pct}%",
         "menu.limitReset": " — {left}後にリセット",
         "menu.limitsPending": "上限：ステータスラインを待っています",
+        "menu.limitsHint": "5時間／7日間の上限は、ターミナルで動くClaude Codeセッション（status line）があるときだけ表示されます。本日のトークン：トランスクリプトより。",
         "menu.tokensToday": "本日のトークン：{n}",
         "menu.unreachable": "地図のサーバーに接続できません",
         "menu.openMap": "地図を開く",
@@ -759,57 +828,5 @@ enum L10n {
         "focus.appMissingTitle": "アプリケーションが見つかりません",
         "focus.appMissingText": "{name}はこのMacにインストールされていません。",
         "focus.thisCompany": "この一行",
-    ]
-
-    // Fantasy languages: stylized French, only the most visible strings (the rest falls back to fr).
-    static let elf: [String: String] = [
-        "menu.language": "Langue des feuillages",
-        "menu.waitingHeader": "Ils attendent ta voix, sous les étoiles",
-        "menu.summary": "{companies} · {coding} façonnent · {waiting} attendent ta voix",
-        "menu.five": "Pain de route (5 h)",
-        "menu.seven": "Greniers d'argent (7 j)",
-        "menu.limitRefilled": "{name} : les réserves renaissent comme les feuilles",
-        "menu.openMap": "✧ Déplier la carte ✧",
-        "menu.unreachable": "La carte se tait, comme la forêt en hiver",
-        "notif.waitTitle": "🔥 {project} attend ta voix",
-        "notif.fires": "Les feux veillent sur les collines.",
-        "notif.limit95": "⚠️ Le pain de route n'est plus qu'un souvenir",
-        "notif.limit80": "⚠️ Le pain de route se fait rare comme la neige en été",
-        "notif.testTitle": "🔥 Les feux veillent, et ils brillent",
-        "notif.testBody": "Une étoile s'allumera ici quand un agent attendra ta voix.",
-        "wait.input": "Attend ta voix",
-        "waiting.title": "✧ La carte se déploie comme une feuille au printemps ✧",
-        "waiting.retry": "Les étoiles reviennent à chaque battement de cœur.",
-    ]
-
-    static let dwarf: [String: String] = [
-        "menu.language": "Parler des nains",
-        "menu.waitingHeader": "Ils attendent ta réponse. Ça vient ?",
-        "menu.summary": "{companies} · {coding} bossent · {waiting} attendent",
-        "menu.five": "Vivres (5 h)",
-        "menu.limitRefilled": "{name} : réserves refaites. Enfin.",
-        "menu.openMap": "Ouvrir la carte, et vite",
-        "menu.unreachable": "Le serveur ne répond pas. Typique.",
-        "menu.quit": "Quitter Terre du Milieu (déjà ?)",
-        "notif.waitTitle": "🔥 {project} attend ta réponse. Ça vient ?",
-        "notif.fires": "Par ma barbe ! Les feux sont allumés.",
-        "notif.limit95": "⚠️ Plus une miette ou presque",
-        "notif.limit80": "⚠️ Les vivres fondent. Qui a tout mangé ?",
-        "notif.testTitle": "🔥 Test. Ça marche. Évidemment.",
-        "notif.testBody": "Quand un agent attend ta réponse, tu le sauras. Bien fait.",
-        "wait.input": "Attend ta réponse. Ça vient ?",
-        "waiting.title": "La carte se déroule. Patience, ça vient.",
-        "waiting.retry": "On recogne chaque seconde.",
-    ]
-
-    static let ent: [String: String] = [
-        "menu.language": "Langue… des… Ents",
-        "menu.waitingHeader": "Hrrm… ils… attendent… ta… réponse…",
-        "menu.five": "Pain… de… route (5 h)",
-        "notif.waitTitle": "🔥 Hrrm… {project}… attend… ta… réponse…",
-        "notif.fires": "Hoom… les… feux… d’alarme… sont… allumés…",
-        "waiting.title": "Hrrm… la… carte… se… déploie… lentement…",
-        "notif.limit95": "⚠️ Hrrm… le… pain… de… route… est… presque… épuisé…",
-        "notif.limit80": "⚠️ Hoom… le… pain… de… route… s’épuise…",
     ]
 }

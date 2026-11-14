@@ -67,10 +67,18 @@ final class StatusMenu: NSObject, NSMenuDelegate {
                 "coding": L10n.number(Double(monitor.codingCount), 0),
                 "waiting": L10n.number(Double(w.count), 0),
             ])
-            menu.addItem(disabled(summary))
+            let sm = disabled(summary)
+            if L10n.isFantasy(L10n.lang) {
+                sm.toolTip = L10n.tl("fr", "menu.summary", [
+                    "companies": L10n.pluralFr("menu.companies", monitor.activeCompanies),
+                    "coding": L10n.number(Double(monitor.codingCount), 0),
+                    "waiting": L10n.number(Double(w.count), 0),
+                ])
+            }
+            menu.addItem(sm)
             if !w.isEmpty {
                 menu.addItem(.separator())
-                menu.addItem(disabled(L10n.t("menu.waitingHeader")))
+                menu.addItem(disabled(L10n.tm("menu.waitingHeader")))
                 for a in w.prefix(12) {
                     let question = (a.waitingMessage ?? "").replacingOccurrences(of: "\n", with: " ")
                     let title = "🔥 \(a.project.isEmpty ? L10n.t("menu.company") : a.project) — \(clip(question, 70))"
@@ -88,43 +96,51 @@ final class StatusMenu: NSObject, NSMenuDelegate {
                 let tag = u.demo ? L10n.t("menu.demoTag") : ""
                 if let f = u.five { menu.addItem(disabled(limitLine(L10n.t("menu.five"), f) + tag)) }
                 if let s = u.seven { menu.addItem(disabled(limitLine(L10n.t("menu.seven"), s) + tag)) }
-                if !u.hasLimits { menu.addItem(disabled(L10n.t("menu.limitsPending"))) }
+                // No 5 h / 7 day limits (no status line, e.g. sessions of the desktop app): today's tokens
+                // from the transcripts take their place; the pending line only when there is nothing at all.
+                if !u.hasLimits && u.todayTokens == nil { menu.addItem(disabled(L10n.tm("menu.limitsPending"))) }
                 if let t = u.todayTokens {
-                    var line = L10n.t("menu.tokensToday", ["n": UsageFormat.tokens(t)])
+                    let args = ["n": UsageFormat.tokens(t)]
+                    var line = L10n.t("menu.tokensToday", args)
                     if let c = u.todayCost { line += " · \(UsageFormat.usd(c))" }
-                    menu.addItem(disabled(line + tag))
+                    let mi = disabled(line + tag)
+                    var tip: [String] = []
+                    if let g = L10n.gloss("menu.tokensToday", args) { tip.append(g) }
+                    if !u.hasLimits { tip.append(L10n.tb("menu.limitsHint")) }
+                    if !tip.isEmpty { mi.toolTip = tip.joined(separator: "\n\n") }
+                    menu.addItem(mi)
                 }
             }
         } else {
-            menu.addItem(disabled(L10n.t("menu.unreachable")))
+            menu.addItem(disabled(L10n.tm("menu.unreachable")))
         }
         let srv = serverDescription()
         if !srv.isEmpty { menu.addItem(disabled(srv)) }
 
         menu.addItem(.separator())
-        menu.addItem(action(L10n.t("menu.openMap"), #selector(openMap), key: "o"))
-        let demo = action(L10n.t("menu.demo"), #selector(toggleDemo))
+        menu.addItem(action(L10n.tm("menu.openMap"), #selector(openMap), key: "o"))
+        let demo = action(L10n.tm("menu.demo"), #selector(toggleDemo))
         demo.state = monitor.demo ? .on : .off
         demo.isEnabled = monitor.connected
         menu.addItem(demo)
-        menu.addItem(action(L10n.t("menu.openBrowser"), #selector(openBrowser)))
-        menu.addItem(action(L10n.t("menu.testNotif"), #selector(testNotifications)))
+        menu.addItem(action(L10n.tm("menu.openBrowser"), #selector(openBrowser)))
+        menu.addItem(action(L10n.tm("menu.testNotif"), #selector(testNotifications)))
         menu.addItem(focusSettingsItem())
         menu.addItem(languageItem())
         menu.addItem(.separator())
         let musicName = customMusicName()
-        let choose = action(L10n.t("menu.chooseMusic"), #selector(chooseMusic))
+        let choose = action(L10n.tm("menu.chooseMusic"), #selector(chooseMusic))
         choose.state = musicName != nil ? .on : .off
         if let n = musicName { choose.toolTip = L10n.t("menu.yourMusic", ["name": n]) }
         menu.addItem(choose)
-        let reset = action(L10n.t("menu.resetMusic"), #selector(resetMusic))
+        let reset = action(L10n.tm("menu.resetMusic"), #selector(resetMusic))
         reset.isEnabled = musicName != nil
         menu.addItem(reset)
         menu.addItem(.separator())
-        menu.addItem(action(L10n.t("menu.installHooks"), #selector(installHooks)))
-        menu.addItem(action(L10n.t("menu.uninstallHooks"), #selector(uninstallHooks)))
+        menu.addItem(action(L10n.tm("menu.installHooks"), #selector(installHooks)))
+        menu.addItem(action(L10n.tm("menu.uninstallHooks"), #selector(uninstallHooks)))
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: L10n.t("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: L10n.tm("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
     }
 
@@ -176,12 +192,12 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     /// Submenu « Langue »: the 8 languages of the map; the page follows (evaluateJavaScript).
     private func languageItem() -> NSMenuItem {
         let current = L10n.lang
-        let item = NSMenuItem(title: "\(L10n.langs.first { $0.code == current }?.flag ?? "🌐") \(L10n.t("menu.language"))", action: nil, keyEquivalent: "")
+        let item = NSMenuItem(title: "\(L10n.langs.first { $0.code == current }?.flag ?? "🌐") \(L10n.tm("menu.language"))", action: nil, keyEquivalent: "")
         let sub = NSMenu()
         sub.autoenablesItems = false
         for l in L10n.langs {
             if l.code == "elf" { sub.addItem(.separator()) }
-            let mi = action("\(l.flag)  \(l.name)", #selector(chooseLanguage(_:)))
+            let mi = action("\(l.flag)  \(l.displayName)", #selector(chooseLanguage(_:)))
             mi.representedObject = l.code
             mi.state = l.code == current ? .on : .off
             sub.addItem(mi)

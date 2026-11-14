@@ -9,35 +9,35 @@ import Darwin
 
 /// UI strings of this feature (L10n, in the language chosen on the map).
 enum FocusText {
-    static var menuSessions: String { L10n.t("focus.menuSessions") }
-    static var menuNoSession: String { L10n.t("focus.menuNoSession") }
-    static var menuSettings: String { L10n.t("focus.menuSettings") }
-    static var menuDesktopHeader: String { L10n.t("focus.menuDesktopHeader") }
-    static var menuDesktopLink: String { L10n.t("focus.menuDesktopLink") }
-    static var menuDesktopApp: String { L10n.t("focus.menuDesktopApp") }
-    static var menuNotifHeader: String { L10n.t("focus.menuNotifHeader") }
-    static var menuNotifSession: String { L10n.t("focus.menuNotifSession") }
-    static var menuNotifMap: String { L10n.t("focus.menuNotifMap") }
-    static var menuWaitingTip: String { L10n.t("focus.menuWaitingTip") }
+    static var menuSessions: String { L10n.tm("focus.menuSessions") }
+    static var menuNoSession: String { L10n.tm("focus.menuNoSession") }
+    static var menuSettings: String { L10n.tm("focus.menuSettings") }
+    static var menuDesktopHeader: String { L10n.tm("focus.menuDesktopHeader") }
+    static var menuDesktopLink: String { L10n.tm("focus.menuDesktopLink") }
+    static var menuDesktopApp: String { L10n.tm("focus.menuDesktopApp") }
+    static var menuNotifHeader: String { L10n.tm("focus.menuNotifHeader") }
+    static var menuNotifSession: String { L10n.tm("focus.menuNotifSession") }
+    static var menuNotifMap: String { L10n.tm("focus.menuNotifMap") }
+    static var menuWaitingTip: String { L10n.tm("focus.menuWaitingTip") }
 
-    static var ok: String { L10n.t("focus.ok") }
-    static var cancel: String { L10n.t("focus.cancel") }
-    static var resume: String { L10n.t("focus.resume") }
-    static var openMap: String { L10n.t("focus.openMap") }
+    static var ok: String { L10n.tm("focus.ok") }
+    static var cancel: String { L10n.tm("focus.cancel") }
+    static var resume: String { L10n.tm("focus.resume") }
+    static var openMap: String { L10n.tm("focus.openMap") }
 
     static var goneTitle: String { L10n.t("focus.goneTitle") }
-    static var goneText: String { L10n.t("focus.goneText") }
+    static var goneText: String { L10n.tb("focus.goneText") }
     static var demoTitle: String { L10n.t("focus.demoTitle") }
-    static var demoText: String { L10n.t("focus.demoText") }
+    static var demoText: String { L10n.tb("focus.demoText") }
     static var noOriginTitle: String { L10n.t("focus.noOriginTitle") }
-    static var noOriginText: String { L10n.t("focus.noOriginText") }
-    static func unknownAppText(_ what: String) -> String { L10n.t("focus.unknownApp", ["what": what]) }
+    static var noOriginText: String { L10n.tb("focus.noOriginText") }
+    static func unknownAppText(_ what: String) -> String { L10n.tb("focus.unknownApp", ["what": what]) }
     static var resumeTitle: String { L10n.t("focus.resumeTitle") }
-    static func resumeEnded(_ project: String) -> String { L10n.t("focus.resumeEnded", ["project": project]) }
+    static func resumeEnded(_ project: String) -> String { L10n.tb("focus.resumeEnded", ["project": project]) }
     static func resumeTabMissing(_ app: String, _ project: String) -> String {
-        L10n.t("focus.resumeTabMissing", ["app": app, "project": project])
+        L10n.tb("focus.resumeTabMissing", ["app": app, "project": project])
     }
-    static var resumeNoId: String { L10n.t("focus.resumeNoId") }
+    static var resumeNoId: String { L10n.tb("focus.resumeNoId") }
     static var automationTitle: String { L10n.t("focus.automationTitle") }
     static func automationText(_ app: String) -> String { L10n.t("focus.automationText", ["app": app]) }
     static var scriptFailedTitle: String { L10n.t("focus.scriptFailedTitle") }

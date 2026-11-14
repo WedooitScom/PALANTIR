@@ -8,11 +8,17 @@
  *   - a string with {name} placeholders;
  *   - an array of variants, picked by params.v (stable, no randomness);
  *   - a plural object { one, other, … } picked by Intl.PluralRules on params.count.
- * Fallback, key by key: language -> its base (fr for elf / dwarf / ent) -> fr -> the key itself.
- * Ent: a French value used as fallback is slowed down automatically (entify).
+ * Fallback, key by key: language -> its base -> fr -> the key itself.
+ * Invented languages (elf / dwarf / ent, fantasy: true): the French template is turned into the
+ * invented language word by word (public/js/conlang.js); params are never touched (raw strings stay
+ * as they are, nested messages are rendered in the same language). gloss() / glossMsg() give the
+ * French text to show next to it. Ent: the invented text is also slowed down (entify).
  */
 (function (root) {
   'use strict';
+
+  const Conlang = typeof module !== 'undefined' && module.exports ? require('./conlang') : root.LOTRConlang;
+  const nativeName = (code) => (Conlang ? Conlang.name(code) : '');
 
   const LANGS = [
     { code: 'fr', flag: '🇫🇷', name: 'Français', locale: 'fr-FR' },
@@ -20,9 +26,9 @@
     { code: 'it', flag: '🇮🇹', name: 'Italiano', locale: 'it-IT' },
     { code: 'es', flag: '🇪🇸', name: 'Español', locale: 'es-ES' },
     { code: 'ja', flag: '🇯🇵', name: '日本語', locale: 'ja-JP' },
-    { code: 'elf', flag: '🧝', name: 'Elfique', locale: 'fr-FR', base: 'fr', fantasy: true },
-    { code: 'dwarf', flag: '⛏️', name: 'Langue des nains', locale: 'fr-FR', base: 'fr', fantasy: true },
-    { code: 'ent', flag: '🌳', name: 'Langue des Ents', locale: 'fr-FR', base: 'fr', fantasy: true },
+    { code: 'elf', flag: '🧝', name: 'Elfique', native: nativeName('elf'), locale: 'fr-FR', base: 'fr', fantasy: true },
+    { code: 'dwarf', flag: '⛏️', name: 'Langue des nains', native: nativeName('dwarf'), locale: 'fr-FR', base: 'fr', fantasy: true },
+    { code: 'ent', flag: '🌳', name: 'Langue des Ents', native: nativeName('ent'), locale: 'fr-FR', base: 'fr', fantasy: true },
   ];
   const BY_CODE = Object.fromEntries(LANGS.map((l) => [l.code, l]));
   const REAL = ['fr', 'en', 'it', 'es', 'ja'];
@@ -30,6 +36,10 @@
   let current = 'fr';
   const listeners = [];
 
+  /** An invented language (its texts come from French through the conlang). */
+  function isFantasy(lang) {
+    return !!(BY_CODE[lang] && BY_CODE[lang].fantasy && Conlang);
+  }
   function isLang(code) {
     return typeof code === 'string' && Object.prototype.hasOwnProperty.call(BY_CODE, code);
   }
@@ -135,24 +145,36 @@
    */
   function tl(lang, key, params, opts) {
     if (!isLang(lang)) lang = 'fr';
-    const hit = lookup(lang, key);
+    const fantasy = isFantasy(lang);
+    const hit = lookup(fantasy ? 'fr' : lang, key);
     if (!hit) return String(key);
-    const tpl = pickValue(hit.value, params, hit.from === lang ? lang : hit.from);
+    let tpl = pickValue(hit.value, params, fantasy ? 'fr' : hit.from === lang ? lang : hit.from);
+    // Invented language: the template only (placeholders kept), params are filled in afterwards.
+    const frTpl = tpl;
+    if (fantasy) tpl = Conlang.translate(lang, tpl);
     const nested = !!(opts && opts.nested);
-    const slow = lang === 'ent' && hit.fallback;
+    // Ent: slowed down, unless nothing was translated (durations, units, formats stay as they are).
+    const slow = lang === 'ent' && tpl !== frTpl;
     if (!slow) {
       const out = tpl.replace(/\{(\w+)\}/g, (m, name) => (params && name in params ? paramText(lang, params[name]) : m));
       // A sentence that starts with a nested message ("le mage de X lit…") gets its capital letter.
       const lead = !nested && /^\{(\w+)\}/.exec(tpl);
       return lead && params && isMsg(params[lead[1]]) && startsWithText(lang, params[lead[1]]) ? out.charAt(0).toUpperCase() + out.slice(1) : out;
     }
-    // Ent fallback: slow the French template down, then put the params back untouched.
+    // Ent: slow the (invented) template down, then put the params back untouched.
     const vals = [];
-    const marked = tpl.replace(/\{(\w+)\}/g, (m, name) => {
+    let marked = tpl.replace(/\{(\w+)\}/g, (m, name) => {
       if (!params || !(name in params)) return m;
       vals.push(paramText(lang, params[name]));
       return S0 + (vals.length - 1) + S1;
     });
+    // Protected terms of several words (commands, product names) are not slowed down either.
+    for (const k of (Conlang && Conlang.DATA.keep) || []) {
+      if (k.includes(' ') && marked.includes(k)) {
+        vals.push(k);
+        marked = marked.split(k).join(S0 + (vals.length - 1) + S1);
+      }
+    }
     const plain = marked.replace(new RegExp(S0 + '(\\d+)' + S1, 'g'), (m, i) => vals[Number(i)]);
     const slowed = nested ? entifyWords(marked) : entify(marked, key, plain.trim().split(/\s+/).length);
     return slowed.replace(new RegExp(S0 + '(\\d+)' + S1, 'g'), (m, i) => vals[Number(i)]);
@@ -171,6 +193,20 @@
     return tl(current, key, params);
   }
 
+  /** French text of a key, to show as a gloss when the current language is an invented one (else null). */
+  function gloss(key, params, lang) {
+    return isFantasy(lang || current) ? tl('fr', key, params) : null;
+  }
+  /** Same for a message { key, params } (null for a raw text, already French). */
+  function glossMsg(msg, lang) {
+    return isFantasy(lang || current) && isMsg(msg) ? tl('fr', msg.key, msg.params) : null;
+  }
+  /** Text + its French gloss on a new line (titles / tooltips). */
+  function withGloss(text, key, params) {
+    const g = gloss(key, params);
+    return g && g !== text ? text + '\n— ' + g : text;
+  }
+
   /** A log / action message: { key, params } (with a French `text` fallback for old entries). */
   function render(msg, lang) {
     lang = lang || current;
@@ -179,7 +215,7 @@
     return msg == null ? '' : String(msg);
   }
 
-  // ------------------------------------------------------------ Ent: slow French
+  // ------------------------------------------------------------ Ent: slow text
 
   function hashStr(s) {
     let h = 2166136261;
@@ -245,7 +281,7 @@
   // Simple letter -> rune transliteration with the historical Elder Futhark (Unicode Runic block).
   const RUNES = {
     a: 'ᚨ', b: 'ᛒ', c: 'ᚲ', d: 'ᛞ', e: 'ᛖ', f: 'ᚠ', g: 'ᚷ', h: 'ᚺ', i: 'ᛁ', j: 'ᛃ', k: 'ᚲ', l: 'ᛚ', m: 'ᛗ',
-    n: 'ᚾ', o: 'ᛟ', p: 'ᛈ', q: 'ᚲ', r: 'ᚱ', s: 'ᛊ', t: 'ᛏ', u: 'ᚢ', v: 'ᚹ', w: 'ᚹ', x: 'ᚲᛊ', y: 'ᛁ', z: 'ᛉ',
+    n: 'ᚾ', o: 'ᛟ', p: 'ᛈ', q: 'ᚲ', r: 'ᚱ', s: 'ᛊ', t: 'ᛏ', u: 'ᚢ', v: 'ᚹ', w: 'ᚹ', x: 'ᚲᛊ', y: 'ᛁ', z: 'ᛉ', 'ø': 'ᛟ',
   };
   function runes(text) {
     const s = String(text == null ? '' : text).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -297,8 +333,8 @@
   }
 
   const api = {
-    LANGS, REAL, BY_CODE, dicts, register, lookup, has, isLang, detect, localeOf,
-    t, tl, render, isMsg, num, date, time, pluralForm, entify, entifyWords, runes, ornament, title,
+    LANGS, REAL, BY_CODE, dicts, register, lookup, has, isLang, isFantasy, detect, localeOf,
+    t, tl, render, gloss, glossMsg, withGloss, conlang: Conlang, isMsg, num, date, time, pluralForm, entify, entifyWords, runes, ornament, title,
     setLang, getLang, onChange,
   };
 

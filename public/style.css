@@ -596,3 +596,19 @@ h1 .runes { color: #d9b866; margin-top: 2px; font-size: 12px; }
 /* Elf: ornaments around titles. */
 .orn { font-family: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", serif; font-size: 1.35em; line-height: 0; color: #f6dc8a; vertical-align: -0.1em; }
 .tab .orn, h3 .orn, .sp-head .orn { color: inherit; opacity: 0.85; }
+
+/* Invented languages (elf / dwarf / ent): the French text as a small, muted gloss line. */
+.gloss {
+  display: block;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  line-height: 1.25;
+  font-style: italic;
+  color: var(--ink-soft);
+  opacity: 0.85;
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+}
+.gloss[hidden] { display: none; }
+.toast .gloss, .flash .gloss { color: inherit; opacity: 0.75; }
+.sp-label .gloss, .sp-check .gloss { font-size: 12px; }

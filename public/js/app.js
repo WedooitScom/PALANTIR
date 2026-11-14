@@ -7,6 +7,9 @@
   const t = (key, params) => I18N.t(key, params);
   /** Text of a translatable server message ({ key, params }), else the French fallback text. */
   const R = (msg, fallback) => (msg && msg.key ? I18N.render(msg) : fallback == null ? '' : fallback);
+  // Invented languages (elf / dwarf / ent): the French text is shown as a gloss (tooltip or small line).
+  /** Tooltip text: the translation, plus its French gloss in an invented language. */
+  const tt = (key, params) => I18N.withGloss(t(key, params), key, params);
 
   const { Scene, STATUS, roleAvatar, modelInfo } = window.LOTRScene;
   const TERR = window.LOTRMap.TERR_BY_KEY;
@@ -18,6 +21,19 @@
     if (cls) n.className = cls;
     if (text != null) n.textContent = text;
     return n;
+  }
+
+  /** Small French line under an invented text (null when not needed). */
+  function glossEl(text, tag) {
+    return text ? el(tag || 'div', 'gloss', text) : null;
+  }
+  const gl = (key, params) => I18N.gloss(key, params);
+  const glMsg = (msg) => I18N.glossMsg(msg);
+  /** Appends a gloss line (if any) to a node and returns the node. */
+  function withGlossLine(node, text, tag) {
+    const g = glossEl(text, tag);
+    if (g) node.append(g);
+    return node;
   }
 
   /** Element whose text is the key's translation (refreshed by applyStatic on a language change). */
@@ -70,11 +86,20 @@
     root = root || document;
     const all = (sel) => (root.matches && root.matches(sel) ? [root] : []).concat([...root.querySelectorAll(sel)]);
     for (const n of all('[data-i18n]')) {
-      const text = t(n.dataset.i18n);
+      const key = n.dataset.i18n;
+      const text = t(key);
       if ('title' in n.dataset) setTitleText(n, text);
       else n.textContent = text;
+      // data-i18n-gloss: French on a small line inside; otherwise in the tooltip.
+      const g = gl(key);
+      if ('i18nGloss' in n.dataset) withGlossLine(n, g, 'span');
+      else if (!('i18nTitle' in n.dataset)) {
+        if (g) n.title = g;
+        else if (n.title && n.dataset.glossTitle) n.removeAttribute('title');
+        n.dataset.glossTitle = g ? '1' : '';
+      }
     }
-    for (const n of all('[data-i18n-title]')) n.title = t(n.dataset.i18nTitle);
+    for (const n of all('[data-i18n-title]')) n.title = tt(n.dataset.i18nTitle);
     for (const n of all('[data-i18n-aria]')) n.setAttribute('aria-label', t(n.dataset.i18nAria));
   }
 
@@ -182,7 +207,7 @@
     if (!s) return;
     if (NATIVE_FOCUS()) {
       sendNative({ type: 'focusSession', agentId: s.id });
-      flash(t('go.going', { name: label(s) }), '');
+      flashT('', 'go.going', { name: label(s) });
       return;
     }
     showSessionHint(s);
@@ -206,13 +231,14 @@
     const head = el('div', 'sp-head');
     const x = el('button', 'btn small ghost', '×');
     x.type = 'button';
-    x.title = t('sound.close');
+    x.title = tt('sound.close');
     x.onclick = () => (hintBox.hidden = true);
     head.append(el('b', null, t('go.hintTitle')), x);
-    const parts = [head, el('p', null, t('go.hintBrowser'))];
+    const p = (key, cls) => withGlossLine(el('p', cls || null, t(key)), gl(key));
+    const parts = [head, p('go.hintBrowser')];
     const o = s.origin || {};
     if (o.entrypoint === 'claude-desktop') {
-      parts.push(el('p', null, t('go.hintDesktop')));
+      parts.push(p('go.hintDesktop'));
     } else if (UUID_RE.test(s.id)) {
       const cmd = (s.cwd ? `cd ${shQuote(s.cwd)} && ` : '') + `claude --resume ${s.id}`;
       const code = el('code', 'hint-cmd', cmd);
@@ -226,11 +252,11 @@
           copy.textContent = t('go.copyFailed');
         }
       };
-      parts.push(el('p', null, t('go.hintResume')), code, copy);
+      parts.push(p('go.hintResume'), code, copy);
     } else {
-      parts.push(el('p', 'muted', t('go.hintNoId')));
+      parts.push(p('go.hintNoId', 'muted'));
     }
-    parts.push(el('p', 'sp-hint', t('go.hintApp')));
+    parts.push(p('go.hintApp', 'sp-hint'));
     hintBox.replaceChildren(...parts);
     hintBox.hidden = false;
   }
@@ -424,6 +450,8 @@
     const nodes = chips.map(([icon, n, key]) => {
       const c = el('span', 'chip' + (icon === '🔥' && n > 0 ? ' hot' : ''));
       c.append(el('span', 'chip-icon', icon), el('b', null, I18N.num(n)), el('span', 'chip-txt', ' ' + t(key, { count: n })));
+      const g = gl(key, { count: n });
+      if (g) c.title = g;
       return c;
     });
     // Today's usage, all sessions (since local midnight).
@@ -435,13 +463,13 @@
         const tk = today.tokens;
         const c = el('span', 'chip usage');
         c.append(el('span', 'chip-icon', '🪙'), el('b', null, fmtTok(tk.total)), el('span', 'chip-txt', ' ' + t('chip.tokens') + demo));
-        c.title = t('chip.tokensTip', { demo, input: fmtTok(tk.input), output: fmtTok(tk.output), cc: fmtTok(tk.cacheCreation), cr: fmtTok(tk.cacheRead) });
+        c.title = tt('chip.tokensTip', { demo, input: fmtTok(tk.input), output: fmtTok(tk.output), cc: fmtTok(tk.cacheCreation), cr: fmtTok(tk.cacheRead) });
         nodes.push(c);
       }
       if (today.costUsd != null) {
         const c = el('span', 'chip usage');
         c.append(el('span', 'chip-icon', '💰'), el('b', null, fmtUsd(today.costUsd)), el('span', 'chip-txt', ' ' + t('chip.today') + demo));
-        c.title = t('chip.costTip', { count: today.costSessions, demo });
+        c.title = tt('chip.costTip', { count: today.costSessions, demo });
         nodes.push(c);
       }
     }
@@ -459,9 +487,25 @@
     const u = currentLimits();
     box.classList.toggle('demo', !!(u && u.demo));
     box.querySelector('.reserves-title').dataset.demo = t('header.demoTag');
+    const wait = $('#reservesWait');
     if (!u) {
       box.setAttribute('data-empty', '');
-      box.title = t('gauge.empty');
+      // No 5 h / 7 day limits (no status line, e.g. sessions of the desktop app): today's tokens instead.
+      const td = currentToday();
+      const tk = td && td.today.tokens;
+      const cost = td && td.today.costUsd;
+      if (td && (tk || cost != null)) {
+        const demo = td.demo ? t('chip.demo') : '';
+        const key = tk && cost != null ? 'header.todayTokensCost' : tk ? 'header.todayTokens' : 'header.todayCost';
+        const params = { n: tk ? fmtTok(tk.total) : '', usd: cost != null ? fmtUsd(cost) : '' };
+        wait.textContent = t(key, params) + demo;
+        box.title = tt('gauge.noLimitsTip');
+        const g = gl(key, params);
+        if (g) box.title += '\n— ' + g;
+      } else {
+        wait.textContent = t('header.reservesWait');
+        box.title = tt('gauge.empty');
+      }
       scene.usage = null;
       return;
     }
@@ -483,6 +527,10 @@
         + (expired ? t('gauge.tipExpired')
           : left ? t('gauge.tipUsedReset', { pct: pctTxt(pct), left, at }) : t('gauge.tipUsed', { pct: pctTxt(pct) }))
         + '\n' + t(u.demo ? 'gauge.tipColorsDemo' : 'gauge.tipColors');
+      if (I18N.isFantasy(I18N.getLang())) {
+        const fr = (key, params) => I18N.tl('fr', key, params);
+        g.node.title += `\n— ${fr('gauge.' + k)} : ${fr('gauge.' + k + '.what')}.`;
+      }
     }
     const five = u.five && u.five.pct != null && !(u.five.resetsAt && !fmtLeft(u.five.resetsAt)) ? u.five.pct : 0;
     scene.usage = { fivePct: five };
@@ -556,7 +604,7 @@
         const beacon = el('canvas', 'toast-icon');
         Sprites.drawIcon(beacon, 'beacon', 0.1, 1.5);
         const txt = el('div', 'toast-txt');
-        txt.append(el('div', 'toast-title'), el('div', 'toast-msg'), el('div', 'toast-meta'));
+        txt.append(el('div', 'toast-title'), el('div', 'toast-msg'), el('div', 'gloss toast-gloss'), el('div', 'toast-meta'));
         const see = el('button', 'btn small toast-see');
         see.onclick = () => openDetail({ type: 'agent', id: a.id });
         const go = el('button', 'btn small toast-go');
@@ -575,13 +623,20 @@
       const title = toast.querySelector('.toast-title');
       title.replaceChildren(...fill(t('alert.waitsTitle', { who: '{who}' }), { who: el('b', null, label(a)) }));
       toast.querySelector('.toast-msg').textContent = waitText(a) || t('alert.fires');
+      // Invented language: the vital part in French, on a small line.
+      const gTitle = gl('alert.waitsTitle', { who: label(a) });
+      const gMsg = a.waiting && a.waiting.i ? glMsg(a.waiting.i) : waitText(a) ? null : gl('alert.fires');
+      const gNode = toast.querySelector('.toast-gloss');
+      gNode.textContent = gTitle ? gTitle + (gMsg ? ' : ' + gMsg : '') : '';
+      gNode.hidden = !gTitle;
+      toast.querySelector('.toast-see').title = gl('alert.see') || '';
       toast.querySelector('.toast-see').textContent = t('alert.see');
       const go = toast.querySelector('.toast-go');
       if (go) {
         go.textContent = t('go.short');
-        go.title = t('go.title');
+        go.title = tt('go.title');
       }
-      toast.querySelector('.toast-x').title = t('alert.hide');
+      toast.querySelector('.toast-x').title = tt('alert.hide');
       toast.querySelector('.toast-meta').textContent = t('alert.meta', { terr: terrName(a.territory), since: since((a.waiting && a.waiting.since) || Date.now()) });
     }
     for (const [k, node] of toastNodes) {
@@ -674,7 +729,7 @@
 
   function chronicleItem(e) {
     const li = el('li', 'item kind-' + e.kind);
-    li.append(el('time', null, fmtTime(e.t)), el('span', 'icon', e.icon || '•'), el('span', 'txt', R(e, e.text)));
+    li.append(el('time', null, fmtTime(e.t)), el('span', 'icon', e.icon || '•'), withGlossLine(el('span', 'txt', R(e, e.text)), glMsg(e)));
     if (e.agentId) li.onclick = () => state.agents.has(e.agentId) && openDetail({ type: 'agent', id: e.agentId });
     return li;
   }
@@ -685,9 +740,9 @@
     head.append(el('span', 'icon', e.icon || '✉'), el('span', 'kind', councilKind(e.kind)), el('time', null, fmtTime(e.t)));
     const route = el('div', 'route');
     route.append(el('b', null, e.from || '?'), document.createTextNode(' → '), el('b', null, R(e.toI, e.to) || '?'));
-    li.append(head, route, el('div', 'title', R(e, e.text)));
+    li.append(head, route, withGlossLine(el('div', 'title', R(e, e.text)), glMsg(e)));
     const body = R(e.bodyI, e.body);
-    if (body) li.append(el('div', 'body', body));
+    if (body) li.append(withGlossLine(el('div', 'body', body), glMsg(e.bodyI)));
     if (e.agentId) li.onclick = () => state.agents.has(e.agentId) && openDetail({ type: 'agent', id: e.agentId });
     return li;
   }
@@ -771,7 +826,8 @@
     const box = el('dl');
     for (const [k, v, cls] of rows) {
       if (v == null || v === '') continue;
-      box.append(el('dt', null, k));
+      const dt = el('dt', null, k);
+      box.append(dt);
       const dd = el('dd', cls || null);
       if (v instanceof Node) dd.append(v);
       else dd.textContent = v;
@@ -791,9 +847,10 @@
     const head = $('#detailHead');
     const icon = $('#detailIcon');
     if (d.type === 'territory') {
-      head.replaceChildren(el('h2', null, terrName(d.key)), el('div', 'sub', t('detail.emptyLand')));
+      const g = TERR[d.key] ? gl('terr.' + d.key) : null;
+      head.replaceChildren(el('h2', null, terrName(d.key)), withGlossLine(el('div', 'sub', t('detail.emptyLand')), g ? g + ' · ' + gl('detail.emptyLand') : null));
       Sprites.drawIcon(icon, 'campfire', 0, 2);
-      body.replaceChildren(el('p', 'muted', t('detail.emptyLandText')));
+      body.replaceChildren(withGlossLine(el('p', 'muted', t('detail.emptyLandText')), gl('detail.emptyLandText')));
       panel.hidden = false;
       return;
     }
@@ -823,7 +880,7 @@
     const rows = [
       [t('detail.status'), badge],
       [t('detail.origin'), originLabel(sess && sess.origin)],
-      a.waiting ? [t('detail.waiting'), t('detail.waitingVal', { msg: waitText(a), since: since(a.waiting.since) }), 'warn'] : null,
+      a.waiting ? [t('detail.waiting'), withGlossLine(el('span', null, t('detail.waitingVal', { msg: waitText(a), since: since(a.waiting.since) })), a.waiting.i ? glMsg(a.waiting.i) : null), 'warn'] : null,
       [t('detail.cwd'), a.cwd, 'mono'],
       a.kind === 'session' ? [t('detail.lastPrompt'), prompt ? t('detail.quote', { text: prompt }) : '—'] : null,
       a.kind === 'subagent' ? [t('detail.mission'), R(a.descriptionI, a.description)] : null,
@@ -835,7 +892,7 @@
     ].filter(Boolean);
     const go = el('button', 'btn small go-session', t('go.button'));
     go.type = 'button';
-    go.title = t('go.title');
+    go.title = tt('go.title');
     go.onclick = () => goToSession(state.agents.get(a.id) || a);
     const parts = a.demo ? [dl(rows)] : [go, dl(rows)];
     const usage = usageRows(a);
@@ -926,6 +983,8 @@
       const txt = el('span');
       txt.append(el('b', null, t('legend.' + kind)), document.createTextNode(t('legend.sep') + t('legend.' + kind + '.d')));
       li.append(cv, txt);
+      const g = gl('legend.' + kind);
+      if (g) li.title = `${g}${t('legend.sep')}${gl('legend.' + kind + '.d')}`;
       return li;
     });
     legendList.replaceChildren(...items);
@@ -956,6 +1015,7 @@
     state.demo = on;
     const b = $('#btnDemo');
     b.textContent = t(on ? 'btn.demoOn' : 'btn.demoOff');
+    b.title = gl(on ? 'btn.demoOn' : 'btn.demoOff') || '';
     b.classList.toggle('on', on);
   }
   $('#btnDemo').onclick = async () => {
@@ -977,7 +1037,7 @@
     b.textContent = '🔊';
     b.classList.toggle('off', prefs.mute);
     b.setAttribute('aria-pressed', String(prefs.mute));
-    b.title = t(prefs.mute ? 'sound.allOff' : 'sound.allOn');
+    b.title = tt(prefs.mute ? 'sound.allOff' : 'sound.allOn');
     Sound.setMuted(prefs.mute);
     Sound.sfx.setEnabled(prefs.sfx);
     syncSoundPanel();
@@ -1003,7 +1063,7 @@
     $('#btnMusic').textContent = '🎵';
     $('#btnMusic').classList.toggle('off', !prefs.music);
     $('#btnMusic').setAttribute('aria-pressed', String(prefs.music));
-    $('#btnMusic').title = prefs.music ? t('sound.musicOn') : t('sound.musicOff');
+    $('#btnMusic').title = prefs.music ? tt('sound.musicOn') : tt('sound.musicOff');
     if (textOnly === true) syncSoundPanel();
     else if (prefs.music) Sound.music.start();
     else Sound.music.stop();
@@ -1075,7 +1135,9 @@
         applyLevels();
       });
       input.addEventListener('change', savePrefs);
-      row.append(tel('span', 'sp-label', text), input, out);
+      const lab = tel('span', 'sp-label', text);
+      lab.dataset.i18nGloss = '';
+      row.append(lab, input, out);
       sliders[key] = { input, out };
       return row;
     };
@@ -1086,7 +1148,9 @@
       input.addEventListener('change', () => {
         if (input.checked !== get()) toggle();
       });
-      row.append(input, document.createTextNode(' '), tel('span', null, text));
+      const lab = tel('span', null, text);
+      lab.dataset.i18nGloss = '';
+      row.append(input, document.createTextNode(' '), lab);
       return { row, input, get };
     };
     const muteCheck = check('sound.muteToggle', () => prefs.mute, toggleMute);
@@ -1123,6 +1187,7 @@
     const buttons = el('div', 'sp-buttons');
     buttons.append(choose, back, file);
     const hint = tel('p', 'sp-hint', NATIVE ? 'sound.hintApp' : 'sound.hintBrowser');
+    hint.dataset.i18nGloss = '';
 
     box.append(head, slider('volume', 'sound.volMaster'), slider('musicVolume', 'sound.volMusic'), slider('sfxVolume', 'sound.volSfx'),
       muteCheck.row, sfxCheck.row, musicCheck.row, src, buttons, hint);
@@ -1145,6 +1210,7 @@
     for (const c of soundPanel.checks) c.input.checked = c.get();
     const custom = Sound.music.source === 'custom';
     soundPanel.srcName.textContent = custom ? t('sound.srcCustom', { name: Sound.music.customName || t('sound.localFile') }) : t('sound.srcGenerated');
+    soundPanel.srcName.title = (custom ? gl('sound.srcCustom', { name: Sound.music.customName || gl('sound.localFile') }) : gl('sound.srcGenerated')) || '';
     soundPanel.back.disabled = !custom;
   }
 
@@ -1171,7 +1237,7 @@
 
   /** A custom track was picked: switch the music on so it is heard. */
   function musicChosen(name) {
-    flash(t('sound.musicPicked', { name }), 'good');
+    flashT('good', 'sound.musicPicked', { name });
     if (!prefs.music) {
       prefs.music = true;
       savePrefs();
@@ -1180,11 +1246,11 @@
   }
   function useGeneratedMusic(announce) {
     Sound.music.setSource(null);
-    if (announce) flash(t('sound.musicBack'), '');
+    if (announce) flashT('', 'sound.musicBack');
     syncSoundPanel();
   }
   Sound.music.onCustomError((name) => {
-    flash(t('sound.musicError', { name: name || t('sound.yourMusic') }), 'bad');
+    flashT('bad', 'sound.musicError', { name: name || t('sound.yourMusic') });
     syncSoundPanel();
   });
 
@@ -1217,15 +1283,21 @@
 
   let flashTimer = null;
   /** Small status message at the bottom of the map. */
-  function flash(text, kind) {
+  function flash(text, kind, glossText) {
     const f = $('#flash');
     f.textContent = text;
+    withGlossLine(f, glossText);
     f.className = 'flash panel' + (kind ? ' ' + kind : '');
     f.hidden = false;
     clearTimeout(flashTimer);
     flashTimer = setTimeout(() => {
       f.hidden = true;
     }, 6000);
+  }
+
+  /** flash() of a key, with its French gloss in an invented language. */
+  function flashT(kind, key, params) {
+    flash(t(key, params), kind, gl(key, params));
   }
 
   const NOTIF_STATE = {
@@ -1235,7 +1307,7 @@
     const b = $('#btnNotif');
     const known = Object.prototype.hasOwnProperty.call(NOTIF_STATE, st);
     b.classList.toggle('on', NOTIF_STATE[st] === 'on');
-    b.title = known ? t('notif.' + st) : t('notif.generic');
+    b.title = known ? tt('notif.' + st) : tt('notif.generic');
     b.dataset.state = st;
   }
 
@@ -1271,11 +1343,11 @@
     setNotifButton(msg.state);
     if (msg.action !== 'request') return;
     if (msg.state === 'denied') {
-      flash(t('notif.nativeDenied'), 'bad');
+      flashT('bad', 'notif.nativeDenied');
     } else if (msg.tested) {
-      flash(t('notif.nativeTested'), 'good');
+      flashT('good', 'notif.nativeTested');
     } else if (msg.state === 'notDetermined') {
-      flash(t('notif.nativeNotDetermined'), 'bad');
+      flashT('bad', 'notif.nativeNotDetermined');
     }
   };
 
@@ -1318,11 +1390,11 @@
     setNotifButton(st);
     if (st === 'granted') {
       const ok = browserTest();
-      flash(t(ok ? 'notif.browserTested' : 'notif.browserTestRefused'), ok ? 'good' : 'bad');
+      flashT(ok ? 'good' : 'bad', ok ? 'notif.browserTested' : 'notif.browserTestRefused');
     } else if (st === 'denied') {
-      flash(t('notif.browserDenied'), 'bad');
+      flashT('bad', 'notif.browserDenied');
     } else {
-      flash(t('notif.browserDefault'), '');
+      flashT('', 'notif.browserDefault');
     }
   };
   applyNotif();
@@ -1345,7 +1417,7 @@
   function applyNight() {
     scene.nightEnabled = prefs.night;
     $('#btnNight').classList.toggle('on', prefs.night);
-    $('#btnNight').title = t(prefs.night ? 'btn.nightOn' : 'btn.nightOff');
+    $('#btnNight').title = tt(prefs.night ? 'btn.nightOn' : 'btn.nightOff');
   }
   $('#btnNight').onclick = () => {
     prefs.night = !prefs.night;
@@ -1389,7 +1461,7 @@
       b.setAttribute('role', 'menuitemradio');
       b.setAttribute('aria-checked', String(l.code === cur));
       b.lang = l.fantasy ? 'fr' : l.code;
-      b.append(el('span', 'flag', l.flag), el('span', null, l.name));
+      b.append(el('span', 'flag', l.flag), el('span', null, l.native ? `${l.name} — ${l.native}` : l.name));
       b.onclick = () => {
         closeLangMenu();
         setLanguage(l.code, 'page');
@@ -1435,13 +1507,15 @@
     document.documentElement.lang = info.fantasy ? 'fr' : lang;
     document.documentElement.dataset.lang = lang;
     langBtn.textContent = info.flag;
-    langBtn.title = `${t('lang.title')} : ${info.name}`;
+    langBtn.title = `${tt('lang.title')} : ${info.native ? `${info.name} — ${info.native}` : info.name}`;
     loadFonts(lang);
     applyStatic(document);
     const empty = $('#emptyText');
     const code = el('code', null, 'npm run install-hooks');
     empty.replaceChildren(...fill(t('empty.text'), { demo: el('em', null, t('empty.demo')), cmd: code }));
+    withGlossLine(empty, gl('empty.text', { demo: gl('empty.demo'), cmd: 'npm run install-hooks' }));
     $('#emptyTitle').textContent = t('empty.title');
+    $('#emptyTitle').title = gl('empty.title') || '';
     scene.animSpeed = lang === 'ent' ? 0.7 : 1; // the Ents take their time (animations only)
     if (hintBox) hintBox.hidden = true;
     filterSig = '';

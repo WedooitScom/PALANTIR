@@ -100,7 +100,12 @@
       this.animT = 0;
 
       this.resize();
-      if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
+      if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => this.resize());
+        ro.observe(canvas.parentElement);
+        const title = canvas.parentElement.querySelector('.map-title');
+        if (title) ro.observe(title); // runes / longer titles when the language changes
+      }
       window.addEventListener('resize', () => this.resize());
       canvas.addEventListener('mousemove', (ev) => this.onMove(ev));
       canvas.addEventListener('mouseleave', () => {
@@ -128,8 +133,17 @@
       this.canvas.height = ch;
       this.canvas.style.width = r.width + 'px';
       this.canvas.style.height = r.height + 'px';
-      const s = Math.max(1, Math.floor(Math.min(cw / W, ch / H)));
-      this.view = { s, dpr, cw, ch, ox: Math.floor((cw - W * s) / 2), oy: Math.floor((ch - H * s) / 2) };
+      // Band kept free at the top for the title above the map (#mapTitle).
+      const title = parent.querySelector('.map-title');
+      const th = title ? title.offsetHeight : 0;
+      const top = title ? Math.min(ch / 3, Math.ceil((th + 14) * dpr)) : 0;
+      const s = Math.max(1, Math.floor(Math.min(cw / W, (ch - top) / H)));
+      this.view = { s, dpr, cw, ch, ox: Math.floor((cw - W * s) / 2), oy: top + Math.floor((ch - top - H * s) / 2) };
+      // The title sits just above the map frame, whatever the window size.
+      if (title) {
+        const y = Math.max(4, Math.round(this.view.oy / dpr - th - 6));
+        if (title.style.top !== y + 'px') title.style.top = y + 'px';
+      }
     }
 
     // ------------------------------------------------ geometry

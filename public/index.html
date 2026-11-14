@@ -12,10 +12,6 @@
 </head>
 <body>
   <header id="topbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <h1 id="appTitle" data-i18n="app.title" data-title>Carte de la Terre du Milieu</h1>
-    </div>
     <div id="summary" class="summary" data-i18n-aria="header.summary" aria-label="Résumé"></div>
     <div id="reserves" class="reserves" data-i18n-aria="header.reserves" aria-label="Réserves du royaume">
       <span class="reserves-title" data-i18n="header.reserves">Réserves du royaume</span>
@@ -44,6 +40,10 @@
 
   <main id="main">
     <div id="mapWrap">
+      <div id="mapTitle" class="brand map-title">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <h1 id="appTitle" data-i18n="app.title" data-title>Carte de la Terre du Milieu</h1>
+      </div>
       <canvas id="map" data-i18n-aria="map.aria" aria-label="Carte des agents"></canvas>
       <div id="alerts" class="alerts" aria-live="assertive"></div>
       <div id="flash" class="flash panel" role="status" aria-live="polite" hidden></div>

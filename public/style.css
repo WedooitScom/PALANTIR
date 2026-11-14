@@ -52,6 +52,18 @@ button { font: inherit; }
 }
 
 .brand { display: flex; align-items: center; gap: 10px; }
+/* Title centred above the map (the canvas keeps a band free for it, see Scene.resize). */
+.map-title {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+.map-title h1 { font-size: 16px; }
 
 .brand-mark {
   width: 18px;

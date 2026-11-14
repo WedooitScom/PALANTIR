@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let monitor = StateMonitor()
     private let notifier = Notifier()
     private let userMusic = UserMusic()
+    private let usageFetcher = UsageFetcher()
     private lazy var focuser = SessionFocuser(monitor: monitor)
     private var window: MainWindowController!
     private var statusMenu: StatusMenu!
@@ -33,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu.onLanguage = { [weak self] code in self?.setLanguage(code, fromPage: false) }
         window.onLangMessage = { [weak self] code in self?.setLanguage(code, fromPage: true) }
         focuser.log = { [weak self] line in self?.server.log(line) }
+        usageFetcher.log = { [weak self] line in self?.server.log(line) }
+        usageFetcher.start()
         window.onFocusSession = { [weak self] id in self?.focuser.focus(agentId: id) }
         statusMenu.customMusicName = { [weak self] in self?.userMusic.name }
         statusMenu.serverDescription = { [weak self] in

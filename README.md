@@ -58,6 +58,12 @@ La carte affiche aussi l'usage de Claude, à partir de deux sources :
   installe une minimale (`~/.claude/lotr-statusline.sh`). `LOTR_HOOK_DIR=<dossier>` copie le script d'envoi
   dans un dossier stable (comme pour les hooks), `CLAUDE_SETTINGS` / `CLAUDE_STATUSLINE_SCRIPT` ciblent
   d'autres fichiers (tests).
+- **L'app macOS** (sans terminal, par exemple avec l'app de bureau Claude, qui n'exécute pas la status
+  line) : toutes les 3 min, si le jeton de connexion de Claude Code rangé dans le Trousseau
+  (« Claude Code-credentials », lu via `/usr/bin/security`) est **encore valide**, l'app demande les
+  pourcentages 5 h / 7 jours à `api.anthropic.com` (service non documenté publiquement) et les transmet
+  au serveur local. Le jeton n'est jamais rafraîchi, enregistré, journalisé ni envoyé ailleurs ; s'il
+  est expiré, rien n'est fait (Claude Code le renouvelle à la prochaine session terminal).
 - **Les transcripts** (`transcript_path` des hooks et de la status line) : le serveur lit les JSONL de façon
   incrémentale (offset par fichier, lecture asynchrone, au plus toutes les 5 s par session ou sur
   Stop/PostToolUse), uniquement sous `~/.claude/projects/`, et additionne `message.usage` des réponses

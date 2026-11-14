@@ -18,10 +18,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func notifyWaiting(_ agent: AgentInfo) {
         let content = UNMutableNotificationContent()
-        let project = agent.project.isEmpty ? "Une compagnie" : agent.project
-        content.title = "🔥 \(project) attend ta réponse"
+        let project = agent.project.isEmpty ? L10n.t("notif.someCompany") : agent.project
+        content.title = L10n.t("notif.waitTitle", ["project": project])
         let message = agent.waitingMessage ?? ""
-        content.body = message.isEmpty ? "Les feux d'alarme sont allumés." : message
+        content.body = message.isEmpty ? L10n.t("notif.fires") : message
         content.sound = .default
         content.threadIdentifier = agent.id
         content.userInfo = ["agentId": agent.id]
@@ -32,9 +32,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// 5 h limit crossing 80 % / 95 %.
     func notifyLimit(level: Int, limit: LimitInfo) {
         let content = UNMutableNotificationContent()
-        content.title = level >= 95 ? "⚠️ Les lembas sont presque épuisés" : "⚠️ Les lembas s'épuisent"
-        var body = "\(Int(limit.pct.rounded())) % de la limite d'usage de Claude sur 5 h."
-        if let r = limit.resetsAt, let left = UsageFormat.countdown(to: r) { body += " Reset dans \(left)." }
+        content.title = L10n.t(level >= 95 ? "notif.limit95" : "notif.limit80")
+        var body = L10n.t("notif.limitBody", ["pct": String(Int(limit.pct.rounded()))])
+        if let r = limit.resetsAt, let left = UsageFormat.countdown(to: r) { body += L10n.t("notif.resetIn", ["left": left]) }
         content.body = body
         content.sound = .default
         content.threadIdentifier = "usage"
@@ -88,8 +88,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func sendTest() {
         let content = UNMutableNotificationContent()
-        content.title = "🔥 Test — les feux d'alarme fonctionnent"
-        content.body = "Tu seras prévenu ici quand un agent attend ta réponse."
+        content.title = L10n.t("notif.testTitle")
+        content.body = L10n.t("notif.testBody")
         content.sound = .default
         center.add(UNNotificationRequest(identifier: "test-\(Date().timeIntervalSince1970)", content: content, trigger: nil))
     }
@@ -123,30 +123,29 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
-/// French formatting shared by the menu and the notifications.
+/// Formatting shared by the menu and the notifications, in the app's language (L10n).
 enum UsageFormat {
     /// "1 h 26", "12 min", "3 j 4 h" until an epoch (seconds); nil when past.
     static func countdown(to epoch: Double) -> String? {
         let s = Int((epoch - Date().timeIntervalSince1970).rounded())
         if s <= 0 { return nil }
-        if s < 60 { return "\(s) s" }
+        if s < 60 { return L10n.t("dur.s", ["n": String(s)]) }
         let m = s / 60
-        if m < 60 { return "\(m) min" }
+        if m < 60 { return L10n.t("dur.m", ["n": String(m)]) }
         let h = m / 60
-        if h < 24 { return String(format: "%d h %02d", h, m % 60) }
-        return "\(h / 24) j \(h % 24) h"
+        if h < 24 { return L10n.t("dur.hm", ["h": String(h), "mm": String(format: "%02d", m % 60)]) }
+        return L10n.t("dur.dh", ["d": String(h / 24), "h": String(h % 24)])
     }
 
-    /// 950 · 1,2 k · 3,4 M · 1,1 G
+    /// 950 · 1,2 k · 3,4 M · 1,1 G (decimal separator of the language)
     static func tokens(_ n: Double) -> String {
-        func dec(_ v: Double, _ d: Int) -> String { String(format: "%.\(d)f", v).replacingOccurrences(of: ".", with: ",") }
-        if n < 1000 { return String(Int(n.rounded())) }
-        if n < 1e6 { return "\(dec(n / 1e3, n < 1e4 ? 1 : 0)) k" }
-        if n < 1e9 { return "\(dec(n / 1e6, n < 1e7 ? 1 : 0)) M" }
-        return "\(dec(n / 1e9, 1)) G"
+        if n < 1000 { return L10n.number(n.rounded(), 0) }
+        if n < 1e6 { return L10n.t("fmt.k", ["n": L10n.number(n / 1e3, n < 1e4 ? 1 : 0)]) }
+        if n < 1e9 { return L10n.t("fmt.M", ["n": L10n.number(n / 1e6, n < 1e7 ? 1 : 0)]) }
+        return L10n.t("fmt.G", ["n": L10n.number(n / 1e9, 1)])
     }
 
     static func usd(_ v: Double) -> String {
-        String(format: "%.2f $", v).replacingOccurrences(of: ".", with: ",")
+        L10n.t("fmt.usd", ["n": L10n.number(v, 2)])
     }
 }

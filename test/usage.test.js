@@ -130,6 +130,9 @@ test('5 h thresholds: one message per level and window, highest level only on a 
     "Plus de lembas ! Limite 5 h atteinte (100 %) : la compagnie campe jusqu'au reset",
   ]);
   assert.equal(s.chronicle.at(-1).icon, '🏕');
+  assert.deepEqual(s.chronicle.filter((e) => e.kind === 'usage').map((e) => [e.key, e.params.pct]), [
+    ['log.five50', 52], ['log.five80', 82], ['log.five80', 91], ['log.five100', 100],
+  ]);
   // New window: reset announced once, levels re-armed; a jump announces only the highest level.
   tick(3, 2000018000);
   tick(4, 2000018000);
@@ -148,6 +151,7 @@ test('7 day thresholds: 80 % and 90 % only', () => {
     'Les greniers se vident : 80 % de la limite 7 jours',
     'Les greniers se vident : 90 % de la limite 7 jours',
   ]);
+  assert.deepEqual(s.chronicle.map((e) => e.key), ['log.seven', 'log.seven']);
 });
 
 test('stepWatch without resets_at treats a big drop as a reset', () => {
@@ -166,6 +170,7 @@ test('context above 85 % is announced once, re-armed after dropping below 70 %',
   for (const p of [50, 84, 86, 90, 95, 88, 75]) ctx(p);
   assert.equal(usageLogs(s).length, 1);
   assert.match(usageLogs(s)[0], /sac de LOTRAgent est plein : 86 %/);
+  assert.deepEqual(s.chronicle.at(-1).params, { who: 'LOTRAgent', pct: 86 });
   ctx(30); // compacted
   ctx(87);
   assert.equal(usageLogs(s).length, 2);

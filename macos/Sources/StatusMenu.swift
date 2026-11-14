@@ -14,6 +14,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     var onTestNotifications: (() -> Void)?
     var onChooseMusic: (() -> Void)?
     var onResetMusic: (() -> Void)?
+    /// Language chosen in the « Langue » submenu (code).
+    var onLanguage: ((String) -> Void)?
     /// « Aller à cette session » (agent id).
     var onFocusSession: ((String) -> Void)?
     /// Name of the custom music file, nil when the generated tune is used.
@@ -25,7 +27,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         super.init()
         item.button?.image = StatusMenu.icon()
         item.button?.imagePosition = .imageLeft
-        item.button?.toolTip = "Terre du Milieu"
+        item.button?.toolTip = L10n.t("app.name")
         menu.delegate = self
         menu.autoenablesItems = false
         item.menu = menu
@@ -48,9 +50,9 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     }
 
     private func limitLine(_ name: String, _ l: LimitInfo) -> String {
-        if l.expired { return "\(name) : réserves reconstituées" }
-        var line = "\(name) : \(Int(l.pct.rounded())) %"
-        if let r = l.resetsAt, let left = UsageFormat.countdown(to: r) { line += " — reset dans \(left)" }
+        if l.expired { return L10n.t("menu.limitRefilled", ["name": name]) }
+        var line = L10n.t("menu.limitLine", ["name": name, "pct": String(Int(l.pct.rounded()))])
+        if let r = l.resetsAt, let left = UsageFormat.countdown(to: r) { line += L10n.t("menu.limitReset", ["left": left]) }
         return line
     }
 
@@ -60,15 +62,18 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         if monitor.connected {
             let w = monitor.waiting
-            let summary = "\(plural(monitor.activeCompanies, "compagnie active", "compagnies actives")) · "
-                + "\(monitor.codingCount) codent · \(w.count) en attente"
+            let summary = L10n.t("menu.summary", [
+                "companies": L10n.plural("menu.companies", monitor.activeCompanies),
+                "coding": L10n.number(Double(monitor.codingCount), 0),
+                "waiting": L10n.number(Double(w.count), 0),
+            ])
             menu.addItem(disabled(summary))
             if !w.isEmpty {
                 menu.addItem(.separator())
-                menu.addItem(disabled("En attente de ta réponse"))
+                menu.addItem(disabled(L10n.t("menu.waitingHeader")))
                 for a in w.prefix(12) {
                     let question = (a.waitingMessage ?? "").replacingOccurrences(of: "\n", with: " ")
-                    let title = "🔥 \(a.project.isEmpty ? "Compagnie" : a.project) — \(clip(question, 70))"
+                    let title = "🔥 \(a.project.isEmpty ? L10n.t("menu.company") : a.project) — \(clip(question, 70))"
                     let mi = NSMenuItem(title: title, action: a.demo ? #selector(openMap) : #selector(focusSession(_:)), keyEquivalent: "")
                     mi.target = self
                     mi.representedObject = a.id
@@ -80,45 +85,46 @@ final class StatusMenu: NSObject, NSMenuDelegate {
             menu.addItem(sessionsItem())
             if let u = monitor.usage {
                 menu.addItem(.separator())
-                let tag = u.demo ? " (démo)" : ""
-                if let f = u.five { menu.addItem(disabled(limitLine("Lembas (5 h)", f) + tag)) }
-                if let s = u.seven { menu.addItem(disabled(limitLine("Greniers (7 j)", s) + tag)) }
-                if !u.hasLimits { menu.addItem(disabled("Limites : en attente de la status line")) }
+                let tag = u.demo ? L10n.t("menu.demoTag") : ""
+                if let f = u.five { menu.addItem(disabled(limitLine(L10n.t("menu.five"), f) + tag)) }
+                if let s = u.seven { menu.addItem(disabled(limitLine(L10n.t("menu.seven"), s) + tag)) }
+                if !u.hasLimits { menu.addItem(disabled(L10n.t("menu.limitsPending"))) }
                 if let t = u.todayTokens {
-                    var line = "Jetons du jour : \(UsageFormat.tokens(t))"
+                    var line = L10n.t("menu.tokensToday", ["n": UsageFormat.tokens(t)])
                     if let c = u.todayCost { line += " · \(UsageFormat.usd(c))" }
                     menu.addItem(disabled(line + tag))
                 }
             }
         } else {
-            menu.addItem(disabled("Serveur de la carte injoignable"))
+            menu.addItem(disabled(L10n.t("menu.unreachable")))
         }
         let srv = serverDescription()
         if !srv.isEmpty { menu.addItem(disabled(srv)) }
 
         menu.addItem(.separator())
-        menu.addItem(action("Ouvrir la carte", #selector(openMap), key: "o"))
-        let demo = action("Mode démo", #selector(toggleDemo))
+        menu.addItem(action(L10n.t("menu.openMap"), #selector(openMap), key: "o"))
+        let demo = action(L10n.t("menu.demo"), #selector(toggleDemo))
         demo.state = monitor.demo ? .on : .off
         demo.isEnabled = monitor.connected
         menu.addItem(demo)
-        menu.addItem(action("Ouvrir dans le navigateur", #selector(openBrowser)))
-        menu.addItem(action("Tester les notifications", #selector(testNotifications)))
+        menu.addItem(action(L10n.t("menu.openBrowser"), #selector(openBrowser)))
+        menu.addItem(action(L10n.t("menu.testNotif"), #selector(testNotifications)))
         menu.addItem(focusSettingsItem())
+        menu.addItem(languageItem())
         menu.addItem(.separator())
         let musicName = customMusicName()
-        let choose = action("Choisir ta musique…", #selector(chooseMusic))
+        let choose = action(L10n.t("menu.chooseMusic"), #selector(chooseMusic))
         choose.state = musicName != nil ? .on : .off
-        if let n = musicName { choose.toolTip = "Ta musique : \(n)" }
+        if let n = musicName { choose.toolTip = L10n.t("menu.yourMusic", ["name": n]) }
         menu.addItem(choose)
-        let reset = action("Revenir à la musique générée", #selector(resetMusic))
+        let reset = action(L10n.t("menu.resetMusic"), #selector(resetMusic))
         reset.isEnabled = musicName != nil
         menu.addItem(reset)
         menu.addItem(.separator())
-        menu.addItem(action("Installer les hooks Claude Code…", #selector(installHooks)))
-        menu.addItem(action("Désinstaller les hooks Claude Code…", #selector(uninstallHooks)))
+        menu.addItem(action(L10n.t("menu.installHooks"), #selector(installHooks)))
+        menu.addItem(action(L10n.t("menu.uninstallHooks"), #selector(uninstallHooks)))
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quitter Terre du Milieu", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: L10n.t("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
     }
 
@@ -132,7 +138,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         for s in list.prefix(30) {
             let icon = s.origin?.icon ?? "•"
             let fire = s.isWaiting ? " 🔥" : ""
-            let mi = NSMenuItem(title: "\(icon) \(s.project.isEmpty ? "Compagnie" : s.project)\(fire)", action: #selector(focusSession(_:)), keyEquivalent: "")
+            let mi = NSMenuItem(title: "\(icon) \(s.project.isEmpty ? L10n.t("menu.company") : s.project)\(fire)", action: #selector(focusSession(_:)), keyEquivalent: "")
             mi.target = self
             mi.representedObject = s.id
             mi.toolTip = s.cwd
@@ -167,6 +173,23 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         return item
     }
 
+    /// Submenu « Langue »: the 8 languages of the map; the page follows (evaluateJavaScript).
+    private func languageItem() -> NSMenuItem {
+        let current = L10n.lang
+        let item = NSMenuItem(title: "\(L10n.langs.first { $0.code == current }?.flag ?? "🌐") \(L10n.t("menu.language"))", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        for l in L10n.langs {
+            if l.code == "elf" { sub.addItem(.separator()) }
+            let mi = action("\(l.flag)  \(l.name)", #selector(chooseLanguage(_:)))
+            mi.representedObject = l.code
+            mi.state = l.code == current ? .on : .off
+            sub.addItem(mi)
+        }
+        item.submenu = sub
+        return item
+    }
+
     private func disabled(_ title: String) -> NSMenuItem {
         let mi = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         mi.isEnabled = false
@@ -179,11 +202,12 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         return mi
     }
 
-    private func plural(_ n: Int, _ one: String, _ many: String) -> String { "\(n) \(n > 1 ? many : one)" }
-
     private func clip(_ s: String, _ n: Int) -> String { s.count > n ? String(s.prefix(n - 1)) + "…" : s }
 
     @objc private func openMap() { onOpenMap?() }
+    @objc private func chooseLanguage(_ sender: NSMenuItem) {
+        if let code = sender.representedObject as? String { onLanguage?(code) }
+    }
     @objc private func focusSession(_ sender: NSMenuItem) {
         if let id = sender.representedObject as? String { onFocusSession?(id) }
     }

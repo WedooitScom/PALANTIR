@@ -7,54 +7,42 @@ import Darwin
 // read from the app's own state (StateMonitor, fed by the local server), and every value handed to
 // AppleScript or NSWorkspace is validated by a regex and escaped. No shell is ever involved.
 
-/// UI strings of this feature, kept together for the coming translation work.
+/// UI strings of this feature (L10n, in the language chosen on the map).
 enum FocusText {
-    static let menuSessions = "Sessions"
-    static let menuNoSession = "Aucune session active"
-    static let menuSettings = "Aller aux sessions"
-    static let menuDesktopHeader = "Sessions de l'app Claude (bureau) :"
-    static let menuDesktopLink = "Lien direct vers la session"
-    static let menuDesktopApp = "Juste ouvrir Claude"
-    static let menuNotifHeader = "Clic sur une notification « attend ta réponse » :"
-    static let menuNotifSession = "Aller à la session"
-    static let menuNotifMap = "Ouvrir la carte"
-    static let menuWaitingTip = "Clique pour aller à cette session"
+    static var menuSessions: String { L10n.t("focus.menuSessions") }
+    static var menuNoSession: String { L10n.t("focus.menuNoSession") }
+    static var menuSettings: String { L10n.t("focus.menuSettings") }
+    static var menuDesktopHeader: String { L10n.t("focus.menuDesktopHeader") }
+    static var menuDesktopLink: String { L10n.t("focus.menuDesktopLink") }
+    static var menuDesktopApp: String { L10n.t("focus.menuDesktopApp") }
+    static var menuNotifHeader: String { L10n.t("focus.menuNotifHeader") }
+    static var menuNotifSession: String { L10n.t("focus.menuNotifSession") }
+    static var menuNotifMap: String { L10n.t("focus.menuNotifMap") }
+    static var menuWaitingTip: String { L10n.t("focus.menuWaitingTip") }
 
-    static let ok = "OK"
-    static let cancel = "Annuler"
-    static let resume = "Reprendre"
-    static let openMap = "Ouvrir la carte"
+    static var ok: String { L10n.t("focus.ok") }
+    static var cancel: String { L10n.t("focus.cancel") }
+    static var resume: String { L10n.t("focus.resume") }
+    static var openMap: String { L10n.t("focus.openMap") }
 
-    static let goneTitle = "Session introuvable"
-    static let goneText = "Cet agent n'est plus sur la carte."
-    static let demoTitle = "Session de démonstration"
-    static let demoText = "Les compagnies du mode démo n'ont pas de vraie session Claude Code."
-    static let noOriginTitle = "Origine de la session inconnue"
-    static let noOriginText = """
-    La carte ne sait pas où tourne cette session : elle a été vue avant la mise à jour des hooks, \
-    ou son terminal n'est pas reconnu. Elle le saura au prochain événement de la session.
-    """
-    static func unknownAppText(_ what: String) -> String {
-        "Cette session tourne dans « \(what) », que la carte ne sait pas mettre au premier plan. Ouvre-la à la main."
-    }
-    static let resumeTitle = "Reprendre cette session ?"
-    static func resumeEnded(_ project: String) -> String {
-        "La session de \(project) est terminée. La reprendre dans une nouvelle fenêtre du Terminal (claude --resume) ?"
-    }
+    static var goneTitle: String { L10n.t("focus.goneTitle") }
+    static var goneText: String { L10n.t("focus.goneText") }
+    static var demoTitle: String { L10n.t("focus.demoTitle") }
+    static var demoText: String { L10n.t("focus.demoText") }
+    static var noOriginTitle: String { L10n.t("focus.noOriginTitle") }
+    static var noOriginText: String { L10n.t("focus.noOriginText") }
+    static func unknownAppText(_ what: String) -> String { L10n.t("focus.unknownApp", ["what": what]) }
+    static var resumeTitle: String { L10n.t("focus.resumeTitle") }
+    static func resumeEnded(_ project: String) -> String { L10n.t("focus.resumeEnded", ["project": project]) }
     static func resumeTabMissing(_ app: String, _ project: String) -> String {
-        "Aucun onglet de \(app) ne correspond à la session de \(project) (fermé ?). La reprendre dans une nouvelle fenêtre du Terminal (claude --resume) ?"
+        L10n.t("focus.resumeTabMissing", ["app": app, "project": project])
     }
-    static let resumeNoId = "L'identifiant de cette session n'est pas valide : impossible de la reprendre automatiquement."
-    static let automationTitle = "Autorisation nécessaire"
-    static func automationText(_ app: String) -> String {
-        """
-        macOS empêche Terre du Milieu de piloter \(app). Dans Réglages Système > Confidentialité et sécurité > \
-        Automatisation, autorise Terre du Milieu à contrôler \(app), puis réessaie.
-        """
-    }
-    static let scriptFailedTitle = "Impossible d'aller à la session"
-    static let appMissingTitle = "Application introuvable"
-    static func appMissingText(_ name: String) -> String { "\(name) n'est pas installée sur ce Mac." }
+    static var resumeNoId: String { L10n.t("focus.resumeNoId") }
+    static var automationTitle: String { L10n.t("focus.automationTitle") }
+    static func automationText(_ app: String) -> String { L10n.t("focus.automationText", ["app": app]) }
+    static var scriptFailedTitle: String { L10n.t("focus.scriptFailedTitle") }
+    static var appMissingTitle: String { L10n.t("focus.appMissingTitle") }
+    static func appMissingText(_ name: String) -> String { L10n.t("focus.appMissingText", ["name": name]) }
 }
 
 /// Preferences of the feature (UserDefaults).
@@ -220,7 +208,7 @@ final class SessionFocuser {
         }
     }
 
-    private func name(_ s: AgentInfo) -> String { s.project.isEmpty ? "cette compagnie" : s.project }
+    private func name(_ s: AgentInfo) -> String { s.project.isEmpty ? L10n.t("focus.thisCompany") : s.project }
 
     // MARK: - ended sessions
 

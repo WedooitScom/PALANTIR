@@ -26,7 +26,7 @@ struct AgentInfo {
         demo = d["demo"] as? Bool ?? false
         origin = SessionOrigin(d["origin"])
         if let w = d["waiting"] as? [String: Any] {
-            waitingMessage = w["message"] as? String ?? ""
+            waitingMessage = AgentInfo.waitText(w)
             waitingSince = (w["since"] as? NSNumber)?.doubleValue ?? 0
         } else {
             waitingMessage = nil
@@ -35,6 +35,17 @@ struct AgentInfo {
     }
 
     var isWaiting: Bool { status == "waiting" }
+
+    /// The waiting message in the app's language when it is one of the known messages ({ key, params }
+    /// in waiting.i), else the French text sent by the server (a question typed by Claude, a demo text).
+    static func waitText(_ w: [String: Any]) -> String {
+        let fallback = w["message"] as? String ?? ""
+        guard let i = w["i"] as? [String: Any], let key = i["key"] as? String, key.hasPrefix("wait."),
+              L10n.fr[key] != nil else { return fallback }
+        var args: [String: String] = [:]
+        for (k, v) in i["params"] as? [String: Any] ?? [:] { if let s = v as? String { args[k] = String(s.prefix(80)) } }
+        return L10n.t(key, args)
+    }
 }
 
 /// One usage limit window (5 h or 7 days): used % and reset time (epoch seconds).

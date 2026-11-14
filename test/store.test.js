@@ -14,9 +14,14 @@ test('PreToolUse Edit creates a coding session named after cwd', () => {
   assert.equal(a.project, 'LOTRAgent');
   assert.equal(a.status, 'coding');
   assert.equal(a.lastAction, 'Édite server.js');
+  assert.deepEqual(a.lastActionI, { key: 'act.edit', params: { file: 'server.js' } });
   assert.equal(a.counters.Edit, 1);
   assert.ok(a.territory);
-  assert.match(s.chronicle.at(-1).text, /nain de LOTRAgent .* server\.js/);
+  const e = s.chronicle.at(-1);
+  assert.match(e.text, /nain de LOTRAgent .* server\.js/);
+  assert.equal(e.key, 'log.edit');
+  assert.equal(e.params.file, 'server.js');
+  assert.deepEqual(e.params.actor, { key: 'actor.coding', params: { project: 'LOTRAgent', tag: '' } });
 });
 
 test('large inputs are truncated / dropped', () => {
@@ -35,6 +40,9 @@ test('Agent spawn creates a subagent, subagent tools are attributed, SubagentSto
   assert.equal(child.role, 'scout');
   assert.equal(s.agents.get('s1').status, 'talking');
   assert.equal(s.council.at(-1).kind, 'spawn');
+  assert.deepEqual({ key: s.council.at(-1).key, params: s.council.at(-1).params }, { key: 'council.spawn', params: { desc: 'Explorer' } });
+  assert.equal(s.chronicle.at(-1).key, 'log.spawn');
+  assert.deepEqual(s.chronicle.at(-1).params.role, { key: 'role.a.scout' });
 
   s.ingest({ session_id: 's1', hook_event_name: 'PreToolUse', tool_name: 'WebSearch', agent_id: 'ag1', agent_type: 'researcher', tool_input: { query: 'node sse' } });
   assert.equal(child.agentId, 'ag1');
@@ -46,6 +54,8 @@ test('Agent spawn creates a subagent, subagent tools are attributed, SubagentSto
   s.ingest({ session_id: 's1', hook_event_name: 'PostToolUse', tool_name: 'Agent', tool_use_id: 'tu1', tool_input: { subagent_type: 'researcher' }, tool_response: { content: [{ type: 'text', text: 'Trouvé 3 fichiers' }] } });
   assert.equal(child.result, 'Trouvé 3 fichiers');
   assert.equal(s.council.at(-1).kind, 'return');
+  assert.equal(s.council.at(-1).key, 'council.return');
+  assert.equal(s.council.at(-1).text, 'Rapport de mission : Explorer');
 });
 
 test('Notification raises an alert that clears on the next tool use', () => {
@@ -55,6 +65,8 @@ test('Notification raises an alert that clears on the next tool use', () => {
   const a = s.agents.get('s1');
   assert.equal(a.status, 'waiting');
   assert.match(a.waiting.message, /permission d'utiliser Bash/);
+  assert.deepEqual(a.waiting.i, { key: 'wait.permission', params: { tool: 'Bash' } });
+  assert.equal(s.chronicle.at(-1).key, 'log.alert');
   s.ingest({ session_id: 's1', hook_event_name: 'PostToolUse', tool_name: 'Bash' });
   assert.equal(a.status, 'running');
   assert.equal(a.waiting, null);

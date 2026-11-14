@@ -8,6 +8,11 @@
 
   const M = window.LOTRMap;
   const S = window.Sprites;
+  const I18N = window.LOTRI18N;
+  const tr = (key, params) => I18N.t(key, params);
+  const R = (msg, fallback) => (msg && msg.key ? I18N.render(msg) : fallback || '');
+  // Canvas fonts: glyph fallbacks for Japanese (DotGothic16) and runes (Noto Sans Runic).
+  const FB = ', "DotGothic16", "Noto Sans Runic", monospace';
   const { W, H, TERRITORIES, TERR_BY_KEY } = M;
 
   const SLOTS = [[-12, 4], [12, 4], [-7, 9], [8, 9], [-16, -2], [16, -2], [0, 11], [-3, -8], [19, 8], [-19, 8]];
@@ -91,6 +96,8 @@
       this.active = new Set();
       this.usage = null; // { fivePct } set by the app
       this.hud = []; // screen-space hit boxes (lanterns, model badges)
+      this.animSpeed = 1; // < 1 slows the characters down (ent language); data timers are untouched
+      this.animT = 0;
 
       this.resize();
       if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
@@ -187,13 +194,16 @@
     // ------------------------------------------------ loop
 
     loop(ts) {
-      const t = ts / 1000;
-      if (this.startT === null) this.startT = t;
-      const dt = Math.min(0.05, Math.max(0, t - (this.lastT || t)));
-      this.lastT = t;
-      if (!this.warm && t - this.startT > 0.6) this.warm = true;
+      const real = ts / 1000;
+      if (this.startT === null) this.startT = real;
+      const realDt = Math.min(0.05, Math.max(0, real - (this.lastT || real)));
+      this.lastT = real;
+      if (!this.warm && real - this.startT > 0.6) this.warm = true;
+      // Animation clock: real time scaled by animSpeed (walks, strikes, blinking, particles).
+      const dt = realDt * this.animSpeed;
+      this.animT += dt;
       try {
-        this.render(t, dt);
+        this.render(this.animT, dt);
       } catch (e) {
         if (!this.errLogged) {
           this.errLogged = true;
@@ -562,7 +572,7 @@
       c.textAlign = 'center';
       c.textBaseline = 'top';
       const labelPx = Math.round((css >= 5 ? 20 : 16) * dpr);
-      c.font = `${labelPx}px VT323, monospace`;
+      c.font = `${labelPx}px VT323${FB}`;
       c.lineJoin = 'round';
       for (const T of TERRITORIES) {
         const on = this.active.has(T.key);
@@ -570,9 +580,10 @@
         c.lineWidth = Math.max(2, 3 * dpr);
         c.strokeStyle = 'rgba(244,232,198,0.9)';
         const ly = Y(T.cy + T.ry + 4);
-        c.strokeText(T.name, X(T.cx), ly);
+        const tname = tr('terr.' + T.key);
+        c.strokeText(tname, X(T.cx), ly);
         c.fillStyle = on ? '#2e1c0e' : '#4a3a28';
-        c.fillText(T.name, X(T.cx), ly);
+        c.fillText(tname, X(T.cx), ly);
       }
       c.globalAlpha = 1;
 
@@ -607,7 +618,9 @@
         sessions.sort((p, q) => p.startedAt - q.startedAt);
         let name = sessions.map((x) => x.project).join(' + ');
         if (name.length > 22) name = name.slice(0, 21) + '…';
-        const r = this.drawBanner(c, X(T.cx), Y(T.cy - 25), name, STATUS[top] || STATUS.idle, top === 'waiting', bannerPx, u, t, dpr);
+        name = I18N.title(name); // elf: ✧ ornaments ✧
+        const info = STATUS[top] || STATUS.idle;
+        const r = this.drawBanner(c, X(T.cx), Y(T.cy - 25), name, { color: info.color, label: tr('banner.' + (STATUS[top] ? top : 'idle')) }, top === 'waiting', bannerPx, u, t, dpr);
         placed.push(r);
         // Lantern (context of the fullest bag here) on the right, model badge on the left.
         let bag = null;
@@ -628,7 +641,8 @@
 
       // Speech bubbles.
       const bubblePx = Math.round((css >= 5 ? 18 : 16) * dpr);
-      c.font = `${bubblePx}px VT323, monospace`;
+      c.font = `${bubblePx}px VT323${FB}`;
+      const maxLen = I18N.getLang() === 'ent' ? 44 : I18N.getLang() === 'ja' ? 22 : 30;
       const now = Date.now();
       const items = [];
       for (const e of this.entities.values()) {
@@ -639,17 +653,17 @@
         let urgent = false;
         const ctx = a.usage && a.usage.contextPct;
         if (a.status === 'waiting') {
-          text = '! ' + ((a.waiting && a.waiting.message) || 'Attend ta réponse');
+          text = '! ' + ((a.waiting && R(a.waiting.i, a.waiting.message)) || tr('bubble.waiting'));
           urgent = true;
         } else if (this.starved(a)) {
-          text = 'Plus de lembas…';
+          text = tr('bubble.starved');
         } else if (a.kind === 'session' && ctx >= 85 && !hovered && Math.floor(now / 1000 + e.seed * 30) % 24 < 4) {
-          text = 'Mon sac est plein !';
+          text = tr('bubble.bagFull');
         } else if (hovered || (a.status !== 'idle' && a.lastAction && now - a.lastActionAt < (a.kind === 'session' ? 15000 : 9000))) {
-          text = a.lastAction || '';
+          text = R(a.lastActionI, a.lastAction);
         }
         if (!text) continue;
-        if (text.length > 30) text = text.slice(0, 29) + '…';
+        if (text.length > maxLen) text = text.slice(0, maxLen - 1) + '…';
         const prio = urgent ? 3 : hovered ? 2 : a.kind === 'session' ? 1 : 0;
         items.push({ e, text, urgent, prio });
       }
@@ -682,7 +696,7 @@
     }
 
     drawBanner(c, cx, bottom, text, info, urgent, fontPx, u, t, dpr) {
-      c.font = `${fontPx}px "Press Start 2P", monospace`;
+      c.font = `${fontPx}px "Press Start 2P"${FB}`;
       const tw = c.measureText(text).width;
       const padX = 4 * u;
       const h = Math.round(fontPx + 5 * u);
@@ -715,7 +729,7 @@
       c.fillText(text, cx, y0 + h / 2 + u * 0.5);
       // Status badge.
       const bp = Math.round(fontPx === 8 * dpr ? 14 * dpr : 16 * dpr);
-      c.font = `${bp}px VT323, monospace`;
+      c.font = `${bp}px VT323${FB}`;
       const lw = c.measureText(info.label).width;
       const bw = Math.round(lw + 6 * u);
       const bh = Math.round(bp * 0.75 + 2 * u);
@@ -778,7 +792,7 @@
     /** Small model badge (letter on a coloured tile), right edge at x. Returns its box. */
     drawModelBadge(c, xRight, y, info, u, dpr) {
       const px = Math.round(14 * dpr);
-      c.font = `${px}px VT323, monospace`;
+      c.font = `${px}px VT323${FB}`;
       const size = Math.round(Math.max(9 * u, px * 0.9));
       const x = Math.round(xRight - size);
       y = Math.round(y);

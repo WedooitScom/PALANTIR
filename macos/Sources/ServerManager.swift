@@ -48,7 +48,7 @@ final class ServerManager {
             // Give up after a few crashes so a broken install does not respawn forever.
             if self.spawnAttempts >= 3 {
                 self.mode = .failed
-                self.lastError = "Le serveur s'est arrêté plusieurs fois. Consulte \(AppPaths.serverLog.path)."
+                self.lastError = L10n.t("server.crashed", ["path": AppPaths.serverLog.path])
                 return
             }
             self.spawn()
@@ -58,7 +58,7 @@ final class ServerManager {
     private func spawn() {
         guard let node = NodeLocator.find() else {
             mode = .failed
-            lastError = "Node.js est introuvable."
+            lastError = L10n.t("server.noNode")
             log("Node.js introuvable : serveur non démarré.")
             onNodeMissing?()
             return
@@ -96,7 +96,7 @@ final class ServerManager {
             mode = .embedded
             log("Serveur lancé, pid \(p.processIdentifier).")
         } catch {
-            lastError = "Impossible de lancer Node : \(error.localizedDescription)"
+            lastError = L10n.t("server.launchFailed", ["error": error.localizedDescription])
             log(lastError!)
         }
     }
@@ -105,7 +105,7 @@ final class ServerManager {
     /// queue: nil on success, else an error message. An external server has no token and refuses it.
     func setUserMusic(_ path: String?, completion: @escaping (String?) -> Void) {
         guard mode == .embedded else {
-            completion(path == nil ? nil : "La carte utilise un serveur déjà lancé sur le port \(AppPaths.port) (par exemple npm start) : ta musique ne peut être servie que par le serveur intégré de l'app. Arrête ce serveur puis relance l'app.")
+            completion(path == nil ? nil : L10n.t("server.musicExternal", ["port": String(AppPaths.port)]))
             return
         }
         var req = URLRequest(url: AppPaths.url("/user-music"))
@@ -119,8 +119,8 @@ final class ServerManager {
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             DispatchQueue.main.async {
                 if code == 200 { completion(nil) }
-                else if code == 422 { completion("Ce fichier n'est pas lisible comme musique (formats : mp3, m4a, aac, wav, aiff).") }
-                else { completion("Le serveur de la carte n'a pas accepté la musique (\(err?.localizedDescription ?? "code \(code)")).") }
+                else if code == 422 { completion(L10n.t("server.musicUnreadable")) }
+                else { completion(L10n.t("server.musicRefused", ["error": err?.localizedDescription ?? "code \(code)"])) }
             }
         }.resume()
     }

@@ -98,4 +98,5 @@ test('log entries carry what the front needs for sounds (tool name, usage level,
   assert.equal(s.chronicle.at(-1).limit, 'five');
   tick(3, 2000018000);
   assert.equal(s.chronicle.at(-1).reset, true);
+  assert.equal(s.chronicle.at(-1).key, 'log.reset5');
 });

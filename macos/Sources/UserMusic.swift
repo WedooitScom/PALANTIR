@@ -28,9 +28,9 @@ final class UserMusic {
     /// NSOpenPanel limited to the formats WebKit plays. Completion with the chosen URL (not yet remembered).
     func choose(completion: @escaping (URL?) -> Void) {
         let panel = NSOpenPanel()
-        panel.title = "Choisir ta musique"
-        panel.message = "Le fichier reste à sa place : la carte ne mémorise que son emplacement."
-        panel.prompt = "Choisir"
+        panel.title = L10n.t("music.panelTitle")
+        panel.message = L10n.t("music.panelMessage")
+        panel.prompt = L10n.t("music.panelPrompt")
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false

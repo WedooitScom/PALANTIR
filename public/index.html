@@ -7,47 +7,51 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%232a1d14'/%3E%3Cpath d='M3 12h10L8 3z' fill='%23c9c3b6'/%3E%3Cpath d='M6.5 6h3L8 3z' fill='%23fff'/%3E%3Crect x='7' y='12' width='2' height='2' fill='%23ff8c1a'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Noto+Sans+Runic&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header id="topbar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
-      <h1>Carte de la Terre du Milieu</h1>
+      <h1 id="appTitle" data-i18n="app.title" data-title>Carte de la Terre du Milieu</h1>
     </div>
-    <div id="summary" class="summary" aria-label="Résumé"></div>
-    <div id="reserves" class="reserves" aria-label="Réserves du royaume">
-      <span class="reserves-title">Réserves du royaume</span>
+    <div id="summary" class="summary" data-i18n-aria="header.summary" aria-label="Résumé"></div>
+    <div id="reserves" class="reserves" data-i18n-aria="header.reserves" aria-label="Réserves du royaume">
+      <span class="reserves-title" data-i18n="header.reserves">Réserves du royaume</span>
       <div class="gauge" id="gFive" data-name="Lembas">
-        <span class="g-name">Lembas</span><span class="g-bar"><span class="g-fill"></span></span><span class="g-val"></span>
+        <span class="g-name" data-i18n="gauge.five">Lembas</span><span class="g-bar"><span class="g-fill"></span></span><span class="g-val"></span>
       </div>
       <div class="gauge" id="gSeven" data-name="Greniers">
-        <span class="g-name">Greniers</span><span class="g-bar"><span class="g-fill"></span></span><span class="g-val"></span>
+        <span class="g-name" data-i18n="gauge.seven">Greniers</span><span class="g-bar"><span class="g-fill"></span></span><span class="g-val"></span>
       </div>
-      <span id="reservesWait" class="reserves-wait">en attente de la status line</span>
+      <span id="reservesWait" class="reserves-wait" data-i18n="header.reservesWait">en attente de la status line</span>
     </div>
     <div class="actions">
       <button id="btnDemo" class="btn" type="button">Mode démo : OFF</button>
+      <div class="lang-wrap">
+        <button id="btnLang" class="btn icon" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-title="lang.title" title="Langue">🇫🇷</button>
+        <div id="langMenu" class="lang-menu panel" role="menu" hidden></div>
+      </div>
       <button id="btnSound" class="btn icon" type="button" title="Effets sonores">🔊</button>
       <button id="btnMusic" class="btn icon" type="button" title="Musique d'ambiance : coupée">🔇</button>
-      <button id="btnNotif" class="btn icon" type="button" title="Notifications du navigateur">📣</button>
-      <button id="btnNight" class="btn icon" type="button" title="Cycle jour/nuit">🌙</button>
-      <button id="btnSide" class="btn icon" type="button" title="Afficher / masquer la chronique">📜</button>
+      <button id="btnNotif" class="btn icon" type="button" data-i18n-title="btn.notif" title="Notifications du navigateur">📣</button>
+      <button id="btnNight" class="btn icon" type="button" data-i18n-title="btn.night" title="Cycle jour/nuit">🌙</button>
+      <button id="btnSide" class="btn icon" type="button" data-i18n-title="btn.side" title="Afficher / masquer la chronique">📜</button>
       <span id="conn" class="conn">●</span>
     </div>
   </header>
 
   <main id="main">
     <div id="mapWrap">
-      <canvas id="map" aria-label="Carte des agents"></canvas>
+      <canvas id="map" data-i18n-aria="map.aria" aria-label="Carte des agents"></canvas>
       <div id="alerts" class="alerts" aria-live="assertive"></div>
       <div id="flash" class="flash panel" role="status" aria-live="polite" hidden></div>
       <div id="tooltip" class="tooltip" hidden></div>
       <div id="empty" class="empty-hint panel">
-        <b>Aucune compagnie en route.</b><br>
-        Active le <em>Mode démo</em> ou installe les hooks
-        (<code>npm run install-hooks</code>) puis lance une session Claude Code.
+        <b id="emptyTitle">Aucune compagnie en route.</b><br>
+        <span id="emptyText">Active le <em>Mode démo</em> ou installe les hooks
+        (<code>npm run install-hooks</code>) puis lance une session Claude Code.</span>
       </div>
 
       <section id="legend" class="legend panel">
@@ -59,7 +63,7 @@
         <header class="detail-head">
           <canvas id="detailIcon" class="detail-icon"></canvas>
           <div id="detailHead" class="detail-title"></div>
-          <button id="detailClose" class="btn small ghost" type="button" title="Fermer">×</button>
+          <button id="detailClose" class="btn small ghost" type="button" data-i18n-title="detail.close" title="Fermer">×</button>
         </header>
         <div id="detailBody" class="detail-body"></div>
       </section>
@@ -67,10 +71,10 @@
 
     <aside id="side" class="side panel">
       <nav class="tabs">
-        <button class="tab active" data-tab="chronicle" type="button">Chronique</button>
-        <button class="tab" data-tab="council" type="button">Conseil d'Elrond</button>
+        <button class="tab active" data-tab="chronicle" type="button" data-i18n="tab.chronicle" data-title>Chronique</button>
+        <button class="tab" data-tab="council" type="button" data-i18n="tab.council" data-title>Conseil d'Elrond</button>
       </nav>
-      <label class="filter">Filtre :
+      <label class="filter"><span data-i18n="filter.label">Filtre :</span>
         <select id="filter"><option value="">Toutes les compagnies</option></select>
       </label>
       <ol id="chronicle" class="feed"></ol>
@@ -78,6 +82,15 @@
     </aside>
   </main>
 
+  <script src="js/i18n.js"></script>
+  <script src="i18n/fr.js"></script>
+  <script src="i18n/en.js"></script>
+  <script src="i18n/it.js"></script>
+  <script src="i18n/es.js"></script>
+  <script src="i18n/ja.js"></script>
+  <script src="i18n/elf.js"></script>
+  <script src="i18n/dwarf.js"></script>
+  <script src="i18n/ent.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/sprites.js"></script>
   <script src="js/map.js"></script>

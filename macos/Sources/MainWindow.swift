@@ -29,6 +29,9 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
     var onMusicMessage: ((String) -> Void)?
     /// Page -> native: « Aller à cette session ». Only the agent id is taken from the page.
     var onFocusSession: ((String) -> Void)?
+    /// Page -> native: language chosen on the map (code, validated).
+    var onLangMessage: ((String) -> Void)?
+    private let userScripts: WKUserContentController
 
     init() {
         let config = WKWebViewConfiguration()
@@ -39,12 +42,8 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
         // Tells the page it runs inside the app: native notifications replace the Web ones.
         // LOTR_AUDIO_DEBUG=1: the page logs its audio state to server.log every 20 s;
         // LOTR_AUDIO_DEBUG=music: same, and the music plays for this launch (prefs untouched).
-        let debugEnv = ProcessInfo.processInfo.environment["LOTR_AUDIO_DEBUG"]
-        let audioDebug = debugEnv == "music" ? "'music'" : debugEnv == "1" ? "true" : "false"
-        let marker = WKUserScript(source: "window.LOTRNative = Object.freeze({ app: true, version: 3, focusSession: true, audioDebug: \(audioDebug) });",
-                                  injectionTime: .atDocumentStart, forMainFrameOnly: true)
-        config.userContentController.addUserScript(marker)
         let ucc = config.userContentController
+        ucc.addUserScript(MainWindowController.marker())
         webView = WKWebView(frame: .zero, configuration: config)
         webView.allowsMagnification = true
         webView.setValue(false, forKey: "drawsBackground")
@@ -61,10 +60,33 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
         window.center()
         // Remembers position and size between launches (default 1400x900, centred).
         window.setFrameAutosaveName("TerreDuMilieuMainWindow")
+        userScripts = ucc
         super.init(window: window)
         window.delegate = self
         webView.navigationDelegate = self
         ucc.add(WeakScriptHandler(self), name: "lotr")
+    }
+
+    /// window.LOTRNative, injected before the page loads: tells it it runs in the app, and the language
+    /// remembered by the app (so the page starts in it). Rebuilt on each language change (reloads too).
+    private static func marker() -> WKUserScript {
+        // LOTR_AUDIO_DEBUG=1: the page logs its audio state to server.log every 20 s;
+        // LOTR_AUDIO_DEBUG=music: same, and the music plays for this launch (prefs untouched).
+        let debugEnv = ProcessInfo.processInfo.environment["LOTR_AUDIO_DEBUG"]
+        let audioDebug = debugEnv == "music" ? "'music'" : debugEnv == "1" ? "true" : "false"
+        let lang = L10n.lang // a code from a fixed list: safe inside the script
+        return WKUserScript(source: "window.LOTRNative = Object.freeze({ app: true, version: 4, focusSession: true, lang: '\(lang)', audioDebug: \(audioDebug) });",
+                            injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    }
+
+    /// The app's language changed: next page loads get it, and the waiting screen is redrawn.
+    func languageChanged() {
+        userScripts.removeAllUserScripts()
+        userScripts.addUserScript(MainWindowController.marker())
+        if !showingMap {
+            lastWaitingHTML = ""
+            renderWaiting()
+        }
     }
 
     // MARK: - page bridge
@@ -83,6 +105,8 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
         case "music":
             let action = (body["action"] as? String) == "reset" ? "reset" : "choose"
             onMusicMessage?(action)
+        case "lang":
+            if let code = body["lang"] as? String, L10n.isLang(code) { onLangMessage?(code) }
         case "focusSession":
             // The id is only used as a key into the app's own state (StateMonitor).
             if let id = body["agentId"] as? String, !id.isEmpty, id.count <= 300 { onFocusSession?(id) }
@@ -135,9 +159,10 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
     private var lastWaitingHTML = ""
 
     private func renderWaiting() {
-        let detail = statusText() ?? "Le serveur de la carte démarre sur le port \(AppPaths.port)…"
+        let detail = statusText() ?? L10n.t("waiting.starting", ["port": String(AppPaths.port)])
+        let lang = (L10n.langs.first { $0.code == L10n.lang }?.fantasy ?? false) ? "fr" : L10n.lang
         let html = """
-        <!doctype html><html lang="fr"><meta charset="utf-8"><style>
+        <!doctype html><html lang="\(lang)"><meta charset="utf-8"><style>
         html,body{margin:0;height:100%;background:#211a12;color:#3b2a17;font:16px/1.5 Georgia,serif}
         .wrap{height:100%;display:flex;align-items:center;justify-content:center}
         .card{background:#ebd7a7;border:4px solid #7a5328;box-shadow:0 0 0 4px #211a12,0 0 0 8px #a67c45;
@@ -147,8 +172,8 @@ final class MainWindowController: NSWindowController, WKNavigationDelegate, NSWi
         .fire{font-size:30px;animation:f 1s steps(2) infinite}
         @keyframes f{50%{opacity:.4}}
         </style><body><div class="wrap"><div class="card">
-        <div class="fire">🔥</div><h1>La carte se déploie…</h1>
-        <p>\(escape(detail))</p><p style="opacity:.7;font-size:13px">Nouvelle tentative chaque seconde.</p>
+        <div class="fire">🔥</div><h1>\(escape(L10n.t("waiting.title")))</h1>
+        <p>\(escape(detail))</p><p style="opacity:.7;font-size:13px">\(escape(L10n.t("waiting.retry")))</p>
         </div></div></body></html>
         """
         guard html != lastWaitingHTML else { return }

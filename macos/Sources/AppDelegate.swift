@@ -29,14 +29,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu.onChooseMusic = { [weak self] in self?.chooseMusic() }
         statusMenu.onResetMusic = { [weak self] in self?.resetMusic() }
         statusMenu.onFocusSession = { [weak self] id in self?.focuser.focus(agentId: id) }
+        // Language: the menu bar submenu tells the page, the page tells the app (same 8 languages).
+        statusMenu.onLanguage = { [weak self] code in self?.setLanguage(code, fromPage: false) }
+        window.onLangMessage = { [weak self] code in self?.setLanguage(code, fromPage: true) }
         focuser.log = { [weak self] line in self?.server.log(line) }
         window.onFocusSession = { [weak self] id in self?.focuser.focus(agentId: id) }
         statusMenu.customMusicName = { [weak self] in self?.userMusic.name }
         statusMenu.serverDescription = { [weak self] in
             switch self?.server.mode {
-            case .external: return "Serveur existant sur le port \(AppPaths.port)"
-            case .embedded: return "Serveur intégré sur le port \(AppPaths.port)"
-            case .failed: return "Serveur indisponible"
+            case .external: return L10n.t("server.external", ["port": String(AppPaths.port)])
+            case .embedded: return L10n.t("server.embedded", ["port": String(AppPaths.port)])
+            case .failed: return L10n.t("server.failed")
             default: return ""
             }
         }
@@ -92,6 +95,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.dockTile.badgeLabel = n > 0 ? String(n) : nil
     }
 
+    // MARK: - language
+
+    /// fromPage: the map changed its language (bridge); otherwise the menu bar did, and the page follows.
+    private func setLanguage(_ code: String, fromPage: Bool) {
+        guard L10n.isLang(code) else { return }
+        let changed = L10n.set(code)
+        server.log("langue : \(fromPage ? "page" : "menu") -> \(code)\(changed ? "" : " (inchangée)")")
+        window.languageChanged()
+        if !fromPage { window.sendToPage(["type": "lang", "lang": code]) }
+        guard changed else { return }
+        buildMainMenu()
+        statusMenu.refresh()
+    }
+
     // MARK: - actions
 
     private func toggleDemo() {
@@ -116,16 +133,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.window.sendToPage(["type": "notif", "action": "status", "state": state])
             if state == "denied" {
                 let alert = NSAlert()
-                alert.messageText = "Notifications refusées"
-                alert.informativeText = "macOS bloque les notifications de Terre du Milieu. Dans Réglages Système > Notifications (qui viennent de s'ouvrir), choisis Terre du Milieu et active « Autoriser les notifications »."
-                alert.addButton(withTitle: "OK")
+                alert.messageText = L10n.t("alert.deniedTitle")
+                alert.informativeText = L10n.t("alert.deniedText")
+                alert.addButton(withTitle: L10n.t("alert.ok"))
                 NSApp.activate(ignoringOtherApps: true)
                 alert.runModal()
             } else if !tested {
                 let alert = NSAlert()
-                alert.messageText = "Notifications non autorisées"
-                alert.informativeText = "L'autorisation n'a pas été accordée (état : \(state)). Réessaie depuis ce menu."
-                alert.addButton(withTitle: "OK")
+                alert.messageText = L10n.t("alert.notAuthTitle")
+                alert.informativeText = L10n.t("alert.notAuthText", ["state": state])
+                alert.addButton(withTitle: L10n.t("alert.ok"))
                 alert.runModal()
             }
         }
@@ -134,15 +151,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func alertNodeMissing() {
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "Node.js est introuvable"
-        alert.informativeText = """
-        La carte a besoin de Node.js (version 18 ou plus) pour faire tourner son serveur local.
-        Emplacements cherchés : /opt/homebrew/bin/node, /usr/local/bin/node, ~/.nvm/versions/node/*/bin/node, \
-        puis « command -v node » dans un shell de connexion zsh.
-        Installe Node (par exemple « brew install node » ou nvm), puis relance l'app.
-        """
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Ouvrir nodejs.org")
+        alert.messageText = L10n.t("alert.nodeTitle")
+        alert.informativeText = L10n.t("alert.nodeText")
+        alert.addButton(withTitle: L10n.t("alert.ok"))
+        alert.addButton(withTitle: L10n.t("alert.nodeOpen"))
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertSecondButtonReturn {
             NSWorkspace.shared.open(URL(string: "https://nodejs.org/")!)
@@ -155,12 +167,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json").path
         let hookCopy = AppPaths.supportDir.appendingPathComponent("send-event.sh").path
         let confirm = NSAlert()
-        confirm.messageText = install ? "Installer les hooks Claude Code ?" : "Désinstaller les hooks Claude Code ?"
+        confirm.messageText = L10n.t(install ? "hooks.installQ" : "hooks.uninstallQ")
         confirm.informativeText = install
-            ? "Les hooks de la carte vont être ajoutés à \(settings) (tes autres réglages et hooks sont conservés, sauvegarde dans settings.json.bak-lotr).\n\nScript utilisé : \(hookCopy)"
-            : "Les hooks de la carte vont être retirés de \(settings) (sauvegarde dans settings.json.bak-lotr). Tes autres hooks sont conservés."
-        confirm.addButton(withTitle: install ? "Installer" : "Désinstaller")
-        confirm.addButton(withTitle: "Annuler")
+            ? L10n.t("hooks.installText", ["settings": settings, "script": hookCopy])
+            : L10n.t("hooks.uninstallText", ["settings": settings])
+        confirm.addButton(withTitle: L10n.t(install ? "hooks.install" : "hooks.uninstall"))
+        confirm.addButton(withTitle: L10n.t("hooks.cancel"))
         NSApp.activate(ignoringOtherApps: true)
         guard confirm.runModal() == .alertFirstButtonReturn else { return }
 
@@ -186,9 +198,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let done = NSAlert()
         done.alertStyle = p.terminationStatus == 0 ? .informational : .warning
-        done.messageText = p.terminationStatus == 0 ? (install ? "Hooks installés" : "Hooks désinstallés") : "Échec"
+        done.messageText = p.terminationStatus == 0 ? L10n.t(install ? "hooks.installed" : "hooks.uninstalled") : L10n.t("hooks.failed")
         done.informativeText = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            + (install && p.terminationStatus == 0 ? "\n\nRelance tes sessions Claude Code (ou /hooks) pour les activer." : "")
+            + (install && p.terminationStatus == 0 ? "\n\n" + L10n.t("hooks.relaunch") : "")
         done.runModal()
     }
 
@@ -200,7 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.server.setUserMusic(url.path) { error in
                 if let error {
                     self.server.log("musique perso : refusée (\(error))")
-                    self.alert("Impossible d'utiliser cette musique", error)
+                    self.alert(L10n.t("music.errorTitle"), error)
                     return
                 }
                 self.userMusic.remember(url)
@@ -222,7 +234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let a = NSAlert()
         a.messageText = title
         a.informativeText = text
-        a.addButton(withTitle: "OK")
+        a.addButton(withTitle: L10n.t("alert.ok"))
         NSApp.activate(ignoringOtherApps: true)
         a.runModal()
     }
@@ -234,41 +246,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "À propos de Terre du Milieu", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: L10n.t("main.about"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Choisir ta musique…", action: #selector(chooseMusic), keyEquivalent: "").target = self
-        appMenu.addItem(withTitle: "Revenir à la musique générée", action: #selector(resetMusic), keyEquivalent: "").target = self
+        appMenu.addItem(withTitle: L10n.t("menu.chooseMusic"), action: #selector(chooseMusic), keyEquivalent: "").target = self
+        appMenu.addItem(withTitle: L10n.t("menu.resetMusic"), action: #selector(resetMusic), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Masquer Terre du Milieu", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        let others = appMenu.addItem(withTitle: "Masquer les autres", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: L10n.t("main.hide"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let others = appMenu.addItem(withTitle: L10n.t("main.hideOthers"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         others.keyEquivalentModifierMask = [.command, .option]
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quitter Terre du Milieu", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: L10n.t("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         main.addItem(appItem)
 
         let editItem = NSMenuItem()
-        let edit = NSMenu(title: "Édition")
-        edit.addItem(withTitle: "Copier", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Coller", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Tout sélectionner", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let edit = NSMenu(title: L10n.t("main.edit"))
+        edit.addItem(withTitle: L10n.t("main.copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: L10n.t("main.paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: L10n.t("main.selectAll"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = edit
         main.addItem(editItem)
 
         let viewItem = NSMenuItem()
-        let view = NSMenu(title: "Présentation")
-        let fs = view.addItem(withTitle: "Plein écran", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
+        let view = NSMenu(title: L10n.t("main.view"))
+        let fs = view.addItem(withTitle: L10n.t("main.fullScreen"), action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
         fs.keyEquivalentModifierMask = [.command, .control]
-        view.addItem(withTitle: "Recharger", action: #selector(reloadMap), keyEquivalent: "r").target = self
+        view.addItem(withTitle: L10n.t("main.reload"), action: #selector(reloadMap), keyEquivalent: "r").target = self
         viewItem.submenu = view
         main.addItem(viewItem)
 
         let windowItem = NSMenuItem()
-        let win = NSMenu(title: "Fenêtre")
-        win.addItem(withTitle: "Fermer", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        win.addItem(withTitle: "Réduire", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        let win = NSMenu(title: L10n.t("main.window"))
+        win.addItem(withTitle: L10n.t("main.close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        win.addItem(withTitle: L10n.t("main.minimize"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         win.addItem(.separator())
-        win.addItem(withTitle: "Carte", action: #selector(showMap), keyEquivalent: "0").target = self
+        win.addItem(withTitle: L10n.t("main.map"), action: #selector(showMap), keyEquivalent: "0").target = self
         windowItem.submenu = win
         main.addItem(windowItem)
         NSApp.windowsMenu = win

@@ -130,6 +130,17 @@ lance aussi la musique pour ce lancement),
 L'app est signée ad hoc (`codesign -s -`) : sur un autre Mac, Gatekeeper demandera un clic droit > Ouvrir
 la première fois. Le binaire est compilé pour l'architecture de la machine de build.
 
+## Langues
+
+Bouton drapeau dans l'en-tête : français, English, italiano, español, 日本語, et trois langues de
+fantaisie originales basées sur le français : 🧝 *Elfique* (poétique, titres ornés ✧), ⛏️ *Langue des
+nains* (bourrue, titres doublés en runes Elder Futhark) et 🌳 *Langue des Ents* (très… lente…, et les
+personnages bougent plus lentement). Choix mémorisé (`prefs.lang`), sinon langue du navigateur, sinon
+français. Dictionnaires : `public/i18n/<lang>.js` (clé par clé, repli sur le français), moteur :
+`public/js/i18n.js`. Le serveur envoie la chronique et le conseil en `{ key, params }` (avec un `text`
+français de secours), rendus par la page dans la langue choisie. Dans l'app macOS, le menu de la barre de
+menus a un sous-menu *Langue*, et l'app suit la langue de la carte (menus, notifications, alertes).
+
 ## Légende
 
 | Personnage | Signification |

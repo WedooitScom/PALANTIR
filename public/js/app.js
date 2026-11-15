@@ -1024,6 +1024,8 @@
     b.title = gl(on ? 'btn.demoOn' : 'btn.demoOff') || '';
     b.classList.toggle('on', on);
   }
+  // In the macOS app, demo mode is in the menus (app menu and menu bar): no header button.
+  if (NATIVE) $('#btnDemo').hidden = true;
   $('#btnDemo').onclick = async () => {
     const b = $('#btnDemo');
     b.disabled = true;

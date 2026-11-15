@@ -88,7 +88,8 @@ h1 {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  flex: 1 1 auto;
+  /* Always its own row: the counters' length (« (démo) », big numbers) never reflows the toolbar. */
+  flex: 1 1 100%;
 }
 
 .chip {
@@ -137,6 +138,7 @@ h1 {
 }
 .btn.small { padding: 0 8px; line-height: 20px; font-size: 18px; }
 .btn.ghost { background: transparent; box-shadow: none; border-color: transparent; color: inherit; font-size: 22px; }
+#btnDemo[hidden] { display: none; }
 #btnDemo { font-family: var(--pixel); font-size: 9px; line-height: 22px; }
 
 .conn { font-size: 16px; margin-left: 4px; white-space: nowrap; }
@@ -260,7 +262,7 @@ h1 {
 
 .alerts {
   position: absolute;
-  top: 10px;
+  top: calc(var(--map-top, 0px) + 10px);
   left: 50%;
   transform: translateX(-50%);
   width: min(680px, calc(100% - 24px));

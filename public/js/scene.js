@@ -291,6 +291,8 @@
       if (title) {
         const y = Math.max(4, Math.round(this.view.oy / dpr - th - 6));
         if (title.style.top !== y + 'px') title.style.top = y + 'px';
+        // Alerts start on the map, under the title (see .alerts in style.css).
+        parent.style.setProperty('--map-top', Math.round(this.view.oy / dpr) + 'px');
       }
     }
 

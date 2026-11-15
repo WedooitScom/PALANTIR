@@ -1,6 +1,6 @@
 import AppKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private let server = ServerManager()
     private let monitor = StateMonitor()
     private let notifier = Notifier()
@@ -209,6 +209,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - custom music ("Ta musique")
 
+    @objc private func toggleDemoFromMenu() { toggleDemo() }
+
+    /// Check mark on « Mode démo » (app menu), greyed out while the server is unreachable.
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(toggleDemoFromMenu) {
+            item.state = monitor.demo ? .on : .off
+            return monitor.connected
+        }
+        return true
+    }
+
     @objc private func chooseMusic() {
         userMusic.choose { [weak self] url in
             guard let self, let url else { return }
@@ -253,6 +264,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: L10n.tm("menu.chooseMusic"), action: #selector(chooseMusic), keyEquivalent: "").target = self
         appMenu.addItem(withTitle: L10n.tm("menu.resetMusic"), action: #selector(resetMusic), keyEquivalent: "").target = self
+        appMenu.addItem(.separator())
+        // Demo mode lives in the menus (not in the map header, where it made the toolbar wrap).
+        appMenu.addItem(withTitle: L10n.tm("menu.demo"), action: #selector(toggleDemoFromMenu), keyEquivalent: "d").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: L10n.tm("main.hide"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let others = appMenu.addItem(withTitle: L10n.tm("main.hideOthers"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")

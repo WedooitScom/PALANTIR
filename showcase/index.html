@@ -177,6 +177,18 @@ h2{ font-size: clamp(22px, 4vw, 30px); color:var(--parch-3); margin:0 0 18px }
 footer{ text-align:center; padding-block:40px 64px; color:var(--ink-soft); font-size:16px }
 footer .pixel{ font-size:10px; letter-spacing:1px; color:var(--parch-2); margin-bottom:8px }
 
+/* screenshot */
+.shot-section{ border-top:none; padding-top:0 }
+.screenshot{
+  margin:0; border:3px solid var(--edge); border-radius:6px; overflow:hidden;
+  box-shadow:0 10px 0 var(--edge), 0 16px 34px rgba(0,0,0,.5);
+}
+.screenshot img{ display:block; width:100%; height:auto }
+.screenshot figcaption{
+  padding:12px 16px; background:var(--wood); color:var(--parch-2);
+  font-size:16px; text-align:center; border-top:2px solid var(--edge);
+}
+
 code, .mono{ font-family: ui-monospace, Menlo, monospace }
 
 @media (max-width:480px){
@@ -212,6 +224,15 @@ code, .mono{ font-family: ui-monospace, Menlo, monospace }
     <p class="port">s'ouvre sur <span class="mono">http://127.0.0.1:4777</span></p>
   </div>
 </header>
+
+<section class="shot-section">
+  <div class="wrap">
+    <figure class="screenshot">
+      <img src="screenshot.jpg" alt="Capture d'écran de la carte de la Terre du Milieu : plusieurs compagnies actives, deux balises allumées réclamant une réponse, et la chronique qui défile à droite.">
+      <figcaption>Deux balises allumées, des troupes en chemin, la chronique qui tourne — une vraie session Claude Code, vue depuis la carte.</figcaption>
+    </figure>
+  </div>
+</section>
 
 <section>
   <div class="wrap">

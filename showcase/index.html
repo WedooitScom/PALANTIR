@@ -1,0 +1,395 @@
+<title>Palantír</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout concept: a parchment scroll laid over a night sky, unrolling section by section like a chronicle read by firelight. Single committed world (no light/dark toggle) — it's a lit room at dusk either way. */
+:root{
+  --wood:#2b1d12; --wood-2:#3d2a1a; --ink:#2e1c0e; --ink-soft:#a8927a;
+  --parch:#efe0b9; --parch-2:#e4d09e; --parch-3:#f7ecd0;
+  --gold:#f0c860; --red:#b5302a; --hot:#e0321f; --edge:#1a100a;
+  --sky:#161019; --sky-2:#241a2b;
+  --display:"Press Start 2P","DotGothic16",ui-monospace,Menlo,monospace;
+  --body:"VT323","DotGothic16",ui-monospace,Menlo,monospace;
+  color-scheme: dark;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background: radial-gradient(ellipse 120% 80% at 50% -10%, var(--sky-2), var(--sky) 60%);
+  color: var(--parch-3);
+  font-family: var(--body);
+  font-size: 20px;
+  line-height:1.5;
+  overflow-x:hidden;
+}
+a{color:var(--gold)}
+h1,h2,h3,.pixel{font-family:var(--display); line-height:1.4; text-wrap:balance}
+.wrap{max-width:980px; margin:0 auto; padding-inline:16px}
+img{max-width:100%}
+
+/* ---------- stars ---------- */
+.stars{
+  position:absolute; inset:0; height:620px; z-index:0; pointer-events:none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 10% 20%, var(--parch-3), transparent),
+    radial-gradient(1.5px 1.5px at 80% 10%, var(--parch-3), transparent),
+    radial-gradient(1px 1px at 60% 30%, var(--ink-soft), transparent),
+    radial-gradient(1.5px 1.5px at 30% 45%, var(--parch-3), transparent),
+    radial-gradient(1px 1px at 90% 50%, var(--ink-soft), transparent),
+    radial-gradient(1.5px 1.5px at 45% 15%, var(--parch-3), transparent),
+    radial-gradient(1px 1px at 15% 60%, var(--ink-soft), transparent),
+    radial-gradient(1.5px 1.5px at 70% 65%, var(--parch-3), transparent);
+  background-size: 100% 100%;
+  opacity:.8;
+}
+
+/* ---------- hero ---------- */
+.hero{position:relative; padding-top:72px; text-align:center}
+.hero .wrap{position:relative; z-index:1}
+.brandmark{
+  width:34px; height:34px; margin:0 auto 18px;
+  background:
+    linear-gradient(135deg, transparent 46%, var(--parch-3) 46% 54%, transparent 54%),
+    radial-gradient(circle at 50% 50%, var(--gold) 0 42%, #8c6420 43% 62%, transparent 63%);
+  image-rendering:pixelated;
+  filter: drop-shadow(0 0 10px rgba(240,200,96,.55));
+}
+h1.title{
+  font-size: clamp(32px, 8vw, 56px);
+  margin: 0 0 10px;
+  color: var(--gold);
+  letter-spacing: 2px;
+  text-shadow: 0 0 18px rgba(240,200,96,.45), 3px 3px 0 var(--edge);
+}
+.subtitle{
+  font-size: clamp(20px, 3.4vw, 26px);
+  color: var(--parch-2);
+  max-width: 640px; margin: 0 auto 28px;
+}
+.tagline{
+  font-family: var(--display); font-size:11px; letter-spacing:1px;
+  color: var(--ink-soft); margin-bottom:34px; text-transform:uppercase;
+}
+
+/* skyline silhouette: mountains + a watchtower with a beacon */
+.skyline{
+  position:relative; height:150px; margin:0 auto 10px; max-width:720px;
+}
+.skyline .ridge{
+  position:absolute; bottom:0; left:0; right:0; height:100px;
+  background:
+    linear-gradient(135deg, transparent 49%, var(--edge) 50%) 0 100%/60px 100px repeat-x,
+    linear-gradient(225deg, transparent 49%, var(--edge) 50%) 30px 100%/60px 100px repeat-x;
+  opacity:.9;
+}
+.skyline .tower{
+  position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+  width:22px; height:92px; background:var(--edge);
+  clip-path: polygon(20% 100%, 20% 30%, 0% 30%, 50% 0%, 100% 30%, 80% 30%, 80% 100%);
+}
+.skyline .flame{
+  position:absolute; bottom:92px; left:50%; transform:translateX(-50%);
+  width:10px; height:16px; border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+  background: radial-gradient(circle at 50% 70%, var(--gold), var(--hot) 70%, transparent 100%);
+  box-shadow: 0 0 16px 6px rgba(224,50,31,.55);
+  animation: flicker 1.6s ease-in-out infinite;
+}
+@keyframes flicker{
+  0%,100%{ transform:translateX(-50%) scale(1); opacity:1 }
+  45%{ transform:translateX(-52%) scale(.88,1.08); opacity:.85 }
+  70%{ transform:translateX(-48%) scale(1.06,.92); opacity:1 }
+}
+@media (prefers-reduced-motion: reduce){ .flame{ animation:none } }
+
+.cta{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-bottom:12px}
+.cmd{
+  display:flex; align-items:center; gap:10px;
+  background: var(--wood); border:2px solid var(--edge); border-radius:4px;
+  padding:10px 14px; font-size:18px; color:var(--parch-3);
+  box-shadow: inset 0 -3px 0 var(--wood-2), 0 4px 0 var(--edge);
+}
+.cmd code{color:var(--gold)}
+.copybtn{
+  font-family:var(--body); font-size:16px; background:none; border:none; color:var(--ink-soft);
+  cursor:pointer; padding:2px 6px;
+}
+.copybtn:hover, .copybtn:focus-visible{ color:var(--gold) }
+.copybtn:focus-visible{ outline:2px solid var(--gold); border-radius:3px }
+.port{ color:var(--ink-soft); font-size:15px; margin-bottom:56px }
+
+/* ---------- sections ---------- */
+section{ position:relative; padding-block:56px; border-top:1px solid rgba(240,224,185,.08) }
+.eyebrow{
+  font-family:var(--display); font-size:11px; letter-spacing:2px; color:var(--red);
+  text-transform:uppercase; margin:0 0 10px;
+}
+h2{ font-size: clamp(22px, 4vw, 30px); color:var(--parch-3); margin:0 0 18px }
+.lede{ max-width:680px; color:var(--parch-2); font-size:21px; margin-bottom:34px }
+
+/* feature grid */
+.grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:16px }
+.card{
+  background: linear-gradient(180deg, var(--wood) 0%, var(--wood-2) 100%);
+  border:2px solid var(--edge); border-radius:6px; padding:18px 20px;
+  box-shadow: 0 4px 0 var(--edge), inset 0 1px 0 rgba(255,255,255,.04);
+  min-width:0;
+}
+.card .glyph{ font-size:26px; line-height:1; margin-bottom:10px; filter:saturate(1.1) }
+.card h3{ font-family:var(--display); font-size:13px; color:var(--gold); margin:0 0 8px; letter-spacing:.5px }
+.card p{ margin:0; color:var(--parch-2); font-size:18px }
+
+/* legend table */
+.legend{ width:100%; border-collapse:collapse; margin-top:8px }
+.legend tr{ border-bottom:1px solid rgba(240,224,185,.12) }
+.legend td{ padding:10px 8px; vertical-align:top; font-size:19px; color:var(--parch-2) }
+.legend td:first-child{ width:42px; font-size:22px; text-align:center }
+.legend td:nth-child(2){ color:var(--parch-3); white-space:nowrap; padding-right:16px }
+
+/* territory banners */
+.territories{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px }
+.territory{
+  position:relative; padding:16px 16px 14px; border-radius:4px; text-align:center;
+  border:2px solid var(--edge); background:var(--wood);
+}
+.territory .name{ font-family:var(--display); font-size:12px; color:var(--parch-3); letter-spacing:.5px }
+.territory .glyph{ font-size:28px; display:block; margin-bottom:8px }
+.territory.shire{ background:linear-gradient(180deg,#39421f,#2b1d12 85%) }
+.territory.rivendell{ background:linear-gradient(180deg,#1f3a42,#2b1d12 85%) }
+.territory.moria{ background:linear-gradient(180deg,#2a2a33,#2b1d12 85%) }
+.territory.mordor{ background:linear-gradient(180deg,#4a1414,#2b1d12 85%) }
+
+/* gauges */
+.gauges{ display:flex; gap:16px; flex-wrap:wrap; margin-top:10px }
+.gauge{ flex:1; min-width:220px; background:var(--wood); border:2px solid var(--edge); border-radius:6px; padding:14px 16px }
+.gauge .label{ font-family:var(--display); font-size:11px; color:var(--gold); letter-spacing:1px; margin-bottom:8px }
+.bar{ height:12px; border-radius:3px; background:var(--edge); overflow:hidden; margin-bottom:6px }
+.bar span{ display:block; height:100%; background:linear-gradient(90deg,var(--gold),var(--red)) }
+.gauge small{ color:var(--ink-soft); font-size:15px }
+
+/* conlang strip */
+.conlangs{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px }
+.conlang{ border-left:3px solid var(--gold); padding-left:14px }
+.conlang .word{ font-size:22px; color:var(--parch-3) }
+.conlang .gloss{ font-size:16px; color:var(--ink-soft) }
+
+/* footer */
+footer{ text-align:center; padding-block:40px 64px; color:var(--ink-soft); font-size:16px }
+footer .pixel{ font-size:10px; letter-spacing:1px; color:var(--parch-2); margin-bottom:8px }
+
+code, .mono{ font-family: ui-monospace, Menlo, monospace }
+
+@media (max-width:480px){
+  .legend td:nth-child(2){ white-space:normal }
+}
+</style>
+
+<div class="stars" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="brandmark" aria-hidden="true"></div>
+    <h1 class="title">PALANTÍR</h1>
+    <p class="subtitle">La pierre qui montre, en direct, ce que font tes agents Claude Code — quelque part en Terre du Milieu.</p>
+    <p class="tagline">Carte pixel-art · temps réel · zéro dépendance</p>
+
+    <div class="skyline" aria-hidden="true">
+      <div class="ridge"></div>
+      <div class="tower"></div>
+      <div class="flame"></div>
+    </div>
+
+    <div class="cta">
+      <div class="cmd">
+        <code id="cmd1">npm start</code>
+        <button class="copybtn" data-copy="npm start" aria-label="Copier la commande npm start">⧉</button>
+      </div>
+      <div class="cmd">
+        <code id="cmd2">npm run demo</code>
+        <button class="copybtn" data-copy="npm run demo" aria-label="Copier la commande npm run demo">⧉</button>
+      </div>
+    </div>
+    <p class="port">s'ouvre sur <span class="mono">http://127.0.0.1:4777</span></p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Le principe</p>
+    <h2>Chaque session devient une compagnie</h2>
+    <p class="lede">
+      Palantír branche ses hooks sur Claude Code et transforme ce qui tourne vraiment dans ton terminal
+      en une carte vivante. Une session Claude Code s'installe sur un territoire et prend l'apparence
+      d'un hobbit ; chacun de ses sous-agents devient un nain, un magicien, un elfe ou un troll selon ce
+      qu'il fait. Quand un agent attend ta réponse, une balise s'allume sur la carte — exactement comme
+      à Gondor.
+    </p>
+
+    <table class="legend">
+      <tr><td>🧑‍🌾</td><td>Hobbit</td><td>une session Claude Code</td></tr>
+      <tr><td>⛏️</td><td>Nain à l'enclume</td><td>écrit du code (Edit, Write…)</td></tr>
+      <tr><td>🧙</td><td>Magicien</td><td>réfléchit, lit (Read, TodoWrite, MCP…)</td></tr>
+      <tr><td>🏹</td><td>Elfe éclaireur</td><td>cherche (Grep, Glob, WebSearch, WebFetch)</td></tr>
+      <tr><td>🎨</td><td>Elfe artiste</td><td>design, frontend, artifacts</td></tr>
+      <tr><td>🗿</td><td>Troll</td><td>commandes et tests (Bash)</td></tr>
+      <tr><td>🔥</td><td>Balise + « ! »</td><td>attend ta réponse</td></tr>
+      <tr><td>🏕️</td><td>Feu de camp + « zzz »</td><td>au repos (Stop)</td></tr>
+      <tr><td>🦅</td><td>Aigle</td><td>message entre agents (SendMessage)</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Ce que tu vois</p>
+    <h2>Une carte, pas un tableau de bord</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="glyph">🗺️</div>
+        <h3>CARTE EN DIRECT</h3>
+        <p>SSE en temps réel : chaque hook Claude Code (session, outil, permission, fin) déplace un personnage sur la carte, sans rafraîchir la page.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">⚔️</div>
+        <h3>ALLER À LA SESSION</h3>
+        <p>Un clic sur un personnage qui attend met au premier plan la vraie session : Terminal, iTerm2, VS Code ou l'app Claude.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">📜</div>
+        <h3>CONSEIL D'ELROND</h3>
+        <p>Une chronique qui annonce les événements qui comptent : nouvelle session, sous-agent en mission, seuils d'usage franchis.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">🍞</div>
+        <h3>LEMBAS &amp; GRENIERS</h3>
+        <p>Les limites 5 h et 7 j de Claude lues depuis la status line ou l'app macOS, avec compte à rebours et ombre du Mordor à 80 %.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">🎻</div>
+        <h3>SON &amp; AMBIANCE</h3>
+        <p>Gigue celtique 8-bit générée en WebAudio, effets sonores (enclume, cor, aigle) et musique qui s'assombrit quand un agent attend.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">🌙</div>
+        <h3>JOUR &amp; NUIT</h3>
+        <p>Le cycle jour/nuit de la carte suit l'heure locale — la Comté s'endort quand toi aussi tu devrais.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">🖥️</div>
+        <h3>APP MACOS NATIVE</h3>
+        <p>Barre de menus, badge « 🔥N », notifications et musique perso, sans Xcode ni dépendance — AppKit + WebKit purs.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">🔤</div>
+        <h3>SIX LANGUES, TROIS INVENTÉES</h3>
+        <p>Français, English, italiano, español, 日本語 — et l'elfique, le nain et l'entique, trois vraies conlangs avec glose.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Les territoires</p>
+    <h2>Où s'installent tes compagnies</h2>
+    <p class="lede">Chaque projet trouve sa place sur la carte, du plus paisible au plus périlleux.</p>
+    <div class="territories">
+      <div class="territory shire"><span class="glyph">🌾</span><span class="name">LA COMTÉ</span></div>
+      <div class="territory rivendell"><span class="glyph">🏛️</span><span class="name">FONDCOMBE</span></div>
+      <div class="territory moria"><span class="glyph">⛰️</span><span class="name">LA MORIA</span></div>
+      <div class="territory mordor"><span class="glyph">🌋</span><span class="name">LE MORDOR</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Veille sur tes limites</p>
+    <h2>Les jauges du voyageur</h2>
+    <p class="lede">Deux jauges empruntées aux provisions du Hobbit, remplies par ta vraie consommation Claude.</p>
+    <div class="gauges">
+      <div class="gauge">
+        <div class="label">🍞 LEMBAS — FENÊTRE 5 H</div>
+        <div class="bar" aria-hidden="true"><span style="width:52%"></span></div>
+        <small>52 % · reset dans 2 h 14</small>
+      </div>
+      <div class="gauge">
+        <div class="label">🌾 GRENIERS — FENÊTRE 7 J</div>
+        <div class="bar" aria-hidden="true"><span style="width:28%"></span></div>
+        <small>28 % · reset dans 4 j</small>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Langues inventées</p>
+    <h2>Même la carte a son propre accent</h2>
+    <p class="lede">Trois conlangs écrites à la main, sans aucun emprunt à Tolkien, avec le français en glose.</p>
+    <div class="conlangs">
+      <div class="conlang"><div class="word">🧝 Velisaine</div><div class="gloss">la langue des elfes — fluide, titres ornés ✧</div></div>
+      <div class="conlang"><div class="word">⛏️ Zgördrak</div><div class="gloss">la langue des nains — consonnes groupées, runes</div></div>
+      <div class="conlang"><div class="word">🌳 Moorvaaloorooma</div><div class="gloss">la langue des Ents — mots étirés, lents</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Installer</p>
+    <h2>Trois commandes pour partir</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>1. LANCER LA CARTE</h3>
+        <p class="mono" style="color:var(--gold)">npm start</p>
+        <p>Node ≥ 18, aucune autre dépendance. S'ouvre sur <span class="mono">127.0.0.1:4777</span>.</p>
+      </div>
+      <div class="card">
+        <h3>2. BRANCHER CLAUDE CODE</h3>
+        <p class="mono" style="color:var(--gold)">npm run install-hooks</p>
+        <p>Idempotent, garde tes hooks existants, sauvegarde ton <span class="mono">settings.json</span>.</p>
+      </div>
+      <div class="card">
+        <h3>3. L'APP MACOS</h3>
+        <p class="mono" style="color:var(--gold)">npm run build:mac</p>
+        <p>Glisse <span class="mono">Terre du Milieu.app</span> dans Applications. Prêt d'un double-clic.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="pixel">PALANTÍR</p>
+    <p>Carte de la Terre du Milieu pour Claude Code · tout l'art est dessiné en code · licence MIT</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.querySelectorAll('.copybtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text = btn.getAttribute('data-copy');
+      var done = function(){
+        var old = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(function(){ btn.textContent = old; }, 1200);
+      };
+      try{
+        navigator.clipboard.writeText(text).then(done).catch(function(){ fallback(); });
+      }catch(e){ fallback(); }
+      function fallback(){
+        var code = btn.previousElementSibling;
+        if(!code) return;
+        var range = document.createRange();
+        range.selectNodeContents(code);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        done();
+      }
+    });
+  });
+})();
+</script>

@@ -14,7 +14,7 @@
   padding-right:max(16px, env(safe-area-inset-right,0px));
 }
 *{box-sizing:border-box}
-html,body{margin:0}
+html,body{margin:0; background:var(--sky)}
 body{
   background: radial-gradient(ellipse 120% 80% at 50% -10%, var(--sky-2), var(--sky) 60%);
   color: var(--parch-3);
@@ -27,6 +27,21 @@ a{color:var(--gold)}
 h1,h2,h3,.pixel{font-family:var(--display); line-height:1.4; text-wrap:balance}
 .wrap{max-width:980px; margin:0 auto; padding-inline:16px}
 img{max-width:100%}
+
+/* ---------- language bar ---------- */
+.langbar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:30;
+  display:flex; justify-content:center; gap:6px; flex-wrap:wrap;
+  padding:8px max(16px, env(safe-area-inset-right,0px)) 8px max(16px, env(safe-area-inset-left,0px));
+  background:var(--wood); border-bottom:2px solid var(--edge);
+}
+.langbtn{
+  font-family:var(--body); font-size:19px; line-height:1; background:none; border:2px solid transparent;
+  border-radius:4px; padding:3px 8px; cursor:pointer; filter:grayscale(.5) opacity(.7);
+}
+.langbtn:hover, .langbtn:focus-visible{ filter:none; border-color:var(--gold) }
+.langbtn:focus-visible{ outline:none }
+.langbtn[aria-current="true"]{ filter:none; border-color:var(--gold); background:var(--wood-2) }
 
 /* ---------- stars ---------- */
 .stars{
@@ -45,7 +60,7 @@ img{max-width:100%}
 }
 
 /* ---------- hero ---------- */
-.hero{position:relative; padding-top:72px; text-align:center}
+.hero{position:relative; padding-top:56px; text-align:center}
 .hero .wrap{position:relative; z-index:1}
 .brandmark{
   width:34px; height:34px; margin:0 auto 18px;
@@ -199,14 +214,22 @@ code, .mono{ font-family: ui-monospace, Menlo, monospace }
 }
 </style>
 
+<div class="langbar" role="group" aria-label="Language / Langue">
+  <button type="button" class="langbtn" data-lang="fr" title="Français" aria-label="Français">🇫🇷</button>
+  <button type="button" class="langbtn" data-lang="en" title="English" aria-label="English">🇬🇧</button>
+  <button type="button" class="langbtn" data-lang="it" title="Italiano" aria-label="Italiano">🇮🇹</button>
+  <button type="button" class="langbtn" data-lang="es" title="Español" aria-label="Español">🇪🇸</button>
+  <button type="button" class="langbtn" data-lang="ja" title="日本語" aria-label="日本語">🇯🇵</button>
+</div>
+
 <div class="stars" aria-hidden="true"></div>
 
 <header class="hero">
   <div class="wrap">
     <div class="brandmark" aria-hidden="true"></div>
     <h1 class="title">PALANTÍR</h1>
-    <p class="subtitle">La pierre qui montre, en direct, ce que font tes agents Claude Code — quelque part en Terre du Milieu.</p>
-    <p class="tagline">Carte pixel-art · temps réel · zéro dépendance</p>
+    <p class="subtitle" data-i18n="subtitle">La pierre qui montre, en direct, ce que font tes agents Claude Code — quelque part en Terre du Milieu.</p>
+    <p class="tagline" data-i18n="tagline">Carte pixel-art · temps réel · zéro dépendance</p>
 
     <div class="skyline" aria-hidden="true">
       <div class="ridge"></div>
@@ -217,34 +240,34 @@ code, .mono{ font-family: ui-monospace, Menlo, monospace }
     <div class="cta">
       <div class="cmd">
         <code id="cmd1">npm start</code>
-        <button class="copybtn" data-copy="npm start" aria-label="Copier la commande npm start">⧉</button>
+        <button class="copybtn" data-copy="npm start" aria-label="Copy">⧉</button>
       </div>
       <div class="cmd">
         <code id="cmd2">npm run demo</code>
-        <button class="copybtn" data-copy="npm run demo" aria-label="Copier la commande npm run demo">⧉</button>
+        <button class="copybtn" data-copy="npm run demo" aria-label="Copy">⧉</button>
       </div>
-      <a class="cmd link" href="https://github.com/WedooitScom/lotr-agent-map" target="_blank" rel="noopener">
-        <span aria-hidden="true">🐙</span> Voir le code sur GitHub ↗
+      <a class="cmd link" href="https://github.com/WedooitScom/PALANTIR" target="_blank" rel="noopener">
+        <span aria-hidden="true">🐙</span> <span data-i18n="cta_github">Voir le code sur GitHub ↗</span>
       </a>
     </div>
-    <p class="port">s'ouvre sur <span class="mono">http://127.0.0.1:4777</span></p>
+    <p class="port"><span data-i18n="port_prefix">s'ouvre sur</span> <span class="mono">http://127.0.0.1:4777</span></p>
   </div>
 </header>
 
 <section class="shot-section">
   <div class="wrap">
     <figure class="screenshot">
-      <img src="screenshot.jpg" alt="Capture d'écran de la carte de la Terre du Milieu : plusieurs compagnies actives, deux balises allumées réclamant une réponse, et la chronique qui défile à droite.">
-      <figcaption>Deux balises allumées, des troupes en chemin, la chronique qui tourne — une vraie session Claude Code, vue depuis la carte.</figcaption>
+      <img src="screenshot.jpg" data-i18n-alt="shot_alt" alt="Capture d'écran de la carte de la Terre du Milieu : plusieurs compagnies actives, deux balises allumées réclamant une réponse, et la chronique qui défile à droite.">
+      <figcaption data-i18n="shot_caption">Deux balises allumées, des troupes en chemin, la chronique qui tourne — une vraie session Claude Code, vue depuis la carte.</figcaption>
     </figure>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Le principe</p>
-    <h2>Chaque session devient une compagnie</h2>
-    <p class="lede">
+    <p class="eyebrow" data-i18n="eyebrow1">Le principe</p>
+    <h2 data-i18n="h2_1">Chaque session devient une compagnie</h2>
+    <p class="lede" data-i18n="lede1">
       Palantír branche ses hooks sur Claude Code et transforme ce qui tourne vraiment dans ton terminal
       en une carte vivante. Une session Claude Code s'installe sur un territoire et prend l'apparence
       d'un hobbit ; chacun de ses sous-agents devient un nain, un magicien, un elfe ou un troll selon ce
@@ -253,63 +276,63 @@ code, .mono{ font-family: ui-monospace, Menlo, monospace }
     </p>
 
     <table class="legend">
-      <tr><td>🧑‍🌾</td><td>Hobbit</td><td>une session Claude Code</td></tr>
-      <tr><td>⛏️</td><td>Nain à l'enclume</td><td>écrit du code (Edit, Write…)</td></tr>
-      <tr><td>🧙</td><td>Magicien</td><td>réfléchit, lit (Read, TodoWrite, MCP…)</td></tr>
-      <tr><td>🏹</td><td>Elfe éclaireur</td><td>cherche (Grep, Glob, WebSearch, WebFetch)</td></tr>
-      <tr><td>🎨</td><td>Elfe artiste</td><td>design, frontend, artifacts</td></tr>
-      <tr><td>🗿</td><td>Troll</td><td>commandes et tests (Bash)</td></tr>
-      <tr><td>🔥</td><td>Balise + « ! »</td><td>attend ta réponse</td></tr>
-      <tr><td>🏕️</td><td>Feu de camp + « zzz »</td><td>au repos (Stop)</td></tr>
-      <tr><td>🦅</td><td>Aigle</td><td>message entre agents (SendMessage)</td></tr>
+      <tr><td>🧑‍🌾</td><td data-i18n="role_hobbit">Hobbit</td><td data-i18n="desc_hobbit">une session Claude Code</td></tr>
+      <tr><td>⛏️</td><td data-i18n="role_nain">Nain à l'enclume</td><td data-i18n="desc_nain">écrit du code (Edit, Write…)</td></tr>
+      <tr><td>🧙</td><td data-i18n="role_magicien">Magicien</td><td data-i18n="desc_magicien">réfléchit, lit (Read, TodoWrite, MCP…)</td></tr>
+      <tr><td>🏹</td><td data-i18n="role_eclaireur">Elfe éclaireur</td><td data-i18n="desc_eclaireur">cherche (Grep, Glob, WebSearch, WebFetch)</td></tr>
+      <tr><td>🎨</td><td data-i18n="role_artiste">Elfe artiste</td><td data-i18n="desc_artiste">design, frontend, artifacts</td></tr>
+      <tr><td>🗿</td><td data-i18n="role_troll">Troll</td><td data-i18n="desc_troll">commandes et tests (Bash)</td></tr>
+      <tr><td>🔥</td><td data-i18n="role_balise">Balise + « ! »</td><td data-i18n="desc_balise">attend ta réponse</td></tr>
+      <tr><td>🏕️</td><td data-i18n="role_feu">Feu de camp + « zzz »</td><td data-i18n="desc_feu">au repos (Stop)</td></tr>
+      <tr><td>🦅</td><td data-i18n="role_aigle">Aigle</td><td data-i18n="desc_aigle">message entre agents (SendMessage)</td></tr>
     </table>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Ce que tu vois</p>
-    <h2>Une carte, pas un tableau de bord</h2>
+    <p class="eyebrow" data-i18n="eyebrow2">Ce que tu vois</p>
+    <h2 data-i18n="h2_2">Une carte, pas un tableau de bord</h2>
     <div class="grid">
       <div class="card">
         <div class="glyph">🗺️</div>
-        <h3>CARTE EN DIRECT</h3>
-        <p>SSE en temps réel : chaque hook Claude Code (session, outil, permission, fin) déplace un personnage sur la carte, sans rafraîchir la page.</p>
+        <h3 data-i18n="card1_t">CARTE EN DIRECT</h3>
+        <p data-i18n="card1_d">SSE en temps réel : chaque hook Claude Code (session, outil, permission, fin) déplace un personnage sur la carte, sans rafraîchir la page.</p>
       </div>
       <div class="card">
         <div class="glyph">⚔️</div>
-        <h3>ALLER À LA SESSION</h3>
-        <p>Un clic sur un personnage qui attend met au premier plan la vraie session : Terminal, iTerm2, VS Code ou l'app Claude.</p>
+        <h3 data-i18n="card2_t">ALLER À LA SESSION</h3>
+        <p data-i18n="card2_d">Un clic sur un personnage qui attend met au premier plan la vraie session : Terminal, iTerm2, VS Code ou l'app Claude.</p>
       </div>
       <div class="card">
         <div class="glyph">📜</div>
-        <h3>CONSEIL D'ELROND</h3>
-        <p>Une chronique qui annonce les événements qui comptent : nouvelle session, sous-agent en mission, seuils d'usage franchis.</p>
+        <h3 data-i18n="card3_t">CONSEIL D'ELROND</h3>
+        <p data-i18n="card3_d">Une chronique qui annonce les événements qui comptent : nouvelle session, sous-agent en mission, seuils d'usage franchis.</p>
       </div>
       <div class="card">
         <div class="glyph">🍞</div>
-        <h3>LEMBAS &amp; GRENIERS</h3>
-        <p>Les limites 5 h et 7 j de Claude lues depuis la status line ou l'app macOS, avec compte à rebours et ombre du Mordor à 80 %.</p>
+        <h3 data-i18n="card4_t">LEMBAS &amp; GRENIERS</h3>
+        <p data-i18n="card4_d">Les limites 5 h et 7 j de Claude lues depuis la status line ou l'app macOS, avec compte à rebours et ombre du Mordor à 80 %.</p>
       </div>
       <div class="card">
         <div class="glyph">🎻</div>
-        <h3>SON &amp; AMBIANCE</h3>
-        <p>Gigue celtique 8-bit générée en WebAudio, effets sonores (enclume, cor, aigle) et musique qui s'assombrit quand un agent attend.</p>
+        <h3 data-i18n="card5_t">SON &amp; AMBIANCE</h3>
+        <p data-i18n="card5_d">Gigue celtique 8-bit générée en WebAudio, effets sonores (enclume, cor, aigle) et musique qui s'assombrit quand un agent attend.</p>
       </div>
       <div class="card">
         <div class="glyph">🌙</div>
-        <h3>JOUR &amp; NUIT</h3>
-        <p>Le cycle jour/nuit de la carte suit l'heure locale — la Comté s'endort quand toi aussi tu devrais.</p>
+        <h3 data-i18n="card6_t">JOUR &amp; NUIT</h3>
+        <p data-i18n="card6_d">Le cycle jour/nuit de la carte suit l'heure locale — la Comté s'endort quand toi aussi tu devrais.</p>
       </div>
       <div class="card">
         <div class="glyph">🖥️</div>
-        <h3>APP MACOS NATIVE</h3>
-        <p>Barre de menus, badge « 🔥N », notifications et musique perso, sans Xcode ni dépendance — AppKit + WebKit purs.</p>
+        <h3 data-i18n="card7_t">APP MACOS NATIVE</h3>
+        <p data-i18n="card7_d">Barre de menus, badge « 🔥N », notifications et musique perso, sans Xcode ni dépendance — AppKit + WebKit purs.</p>
       </div>
       <div class="card">
         <div class="glyph">🔤</div>
-        <h3>SIX LANGUES, TROIS INVENTÉES</h3>
-        <p>Français, English, italiano, español, 日本語 — et l'elfique, le nain et l'entique, trois vraies conlangs avec glose.</p>
+        <h3 data-i18n="card8_t">SIX LANGUES, TROIS INVENTÉES</h3>
+        <p data-i18n="card8_d">Français, English, italiano, español, 日本語 — et l'elfique, le nain et l'entique, trois vraies conlangs avec glose.</p>
       </div>
     </div>
   </div>
@@ -317,33 +340,33 @@ code, .mono{ font-family: ui-monospace, Menlo, monospace }
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Les territoires</p>
-    <h2>Où s'installent tes compagnies</h2>
-    <p class="lede">Chaque projet trouve sa place sur la carte, du plus paisible au plus périlleux.</p>
+    <p class="eyebrow" data-i18n="eyebrow3">Les territoires</p>
+    <h2 data-i18n="h2_3">Où s'installent tes compagnies</h2>
+    <p class="lede" data-i18n="lede3">Chaque projet trouve sa place sur la carte, du plus paisible au plus périlleux.</p>
     <div class="territories">
-      <div class="territory shire"><span class="glyph">🌾</span><span class="name">LA COMTÉ</span></div>
-      <div class="territory rivendell"><span class="glyph">🏛️</span><span class="name">FONDCOMBE</span></div>
-      <div class="territory moria"><span class="glyph">⛰️</span><span class="name">LA MORIA</span></div>
-      <div class="territory mordor"><span class="glyph">🌋</span><span class="name">LE MORDOR</span></div>
+      <div class="territory shire"><span class="glyph">🌾</span><span class="name" data-i18n="terr_shire">LA COMTÉ</span></div>
+      <div class="territory rivendell"><span class="glyph">🏛️</span><span class="name" data-i18n="terr_rivendell">FONDCOMBE</span></div>
+      <div class="territory moria"><span class="glyph">⛰️</span><span class="name" data-i18n="terr_moria">LA MORIA</span></div>
+      <div class="territory mordor"><span class="glyph">🌋</span><span class="name" data-i18n="terr_mordor">LE MORDOR</span></div>
     </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Veille sur tes limites</p>
-    <h2>Les jauges du voyageur</h2>
-    <p class="lede">Deux jauges empruntées aux provisions du Hobbit, remplies par ta vraie consommation Claude.</p>
+    <p class="eyebrow" data-i18n="eyebrow4">Veille sur tes limites</p>
+    <h2 data-i18n="h2_4">Les jauges du voyageur</h2>
+    <p class="lede" data-i18n="lede4">Deux jauges empruntées aux provisions du Hobbit, remplies par ta vraie consommation Claude.</p>
     <div class="gauges">
       <div class="gauge">
-        <div class="label">🍞 LEMBAS — FENÊTRE 5 H</div>
+        <div class="label" data-i18n="gauge1_label">🍞 LEMBAS — FENÊTRE 5 H</div>
         <div class="bar" aria-hidden="true"><span style="width:52%"></span></div>
-        <small>52 % · reset dans 2 h 14</small>
+        <small data-i18n="gauge1_small">52 % · reset dans 2 h 14</small>
       </div>
       <div class="gauge">
-        <div class="label">🌾 GRENIERS — FENÊTRE 7 J</div>
+        <div class="label" data-i18n="gauge2_label">🌾 GRENIERS — FENÊTRE 7 J</div>
         <div class="bar" aria-hidden="true"><span style="width:28%"></span></div>
-        <small>28 % · reset dans 4 j</small>
+        <small data-i18n="gauge2_small">28 % · reset dans 4 j</small>
       </div>
     </div>
   </div>
@@ -351,36 +374,36 @@ code, .mono{ font-family: ui-monospace, Menlo, monospace }
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Langues inventées</p>
-    <h2>Même la carte a son propre accent</h2>
-    <p class="lede">Trois conlangs écrites à la main, sans aucun emprunt à Tolkien, avec le français en glose.</p>
+    <p class="eyebrow" data-i18n="eyebrow5">Langues inventées</p>
+    <h2 data-i18n="h2_5">Même la carte a son propre accent</h2>
+    <p class="lede" data-i18n="lede5">Trois conlangs écrites à la main, sans aucun emprunt à Tolkien, avec le français en glose.</p>
     <div class="conlangs">
-      <div class="conlang"><div class="word">🧝 Velisaine</div><div class="gloss">la langue des elfes — fluide, titres ornés ✧</div></div>
-      <div class="conlang"><div class="word">⛏️ Zgördrak</div><div class="gloss">la langue des nains — consonnes groupées, runes</div></div>
-      <div class="conlang"><div class="word">🌳 Moorvaaloorooma</div><div class="gloss">la langue des Ents — mots étirés, lents</div></div>
+      <div class="conlang"><div class="word">🧝 Velisaine</div><div class="gloss" data-i18n="conlang1">la langue des elfes — fluide, titres ornés ✧</div></div>
+      <div class="conlang"><div class="word">⛏️ Zgördrak</div><div class="gloss" data-i18n="conlang2">la langue des nains — consonnes groupées, runes</div></div>
+      <div class="conlang"><div class="word">🌳 Moorvaaloorooma</div><div class="gloss" data-i18n="conlang3">la langue des Ents — mots étirés, lents</div></div>
     </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Installer</p>
-    <h2>Trois commandes pour partir</h2>
+    <p class="eyebrow" data-i18n="eyebrow6">Installer</p>
+    <h2 data-i18n="h2_6">Trois commandes pour partir</h2>
     <div class="grid">
       <div class="card">
-        <h3>1. LANCER LA CARTE</h3>
+        <h3 data-i18n="step1_t">1. LANCER LA CARTE</h3>
         <p class="mono" style="color:var(--gold)">npm start</p>
-        <p>Node ≥ 18, aucune autre dépendance. S'ouvre sur <span class="mono">127.0.0.1:4777</span>.</p>
+        <p data-i18n="step1_d">Node ≥ 18, aucune autre dépendance. S'ouvre sur 127.0.0.1:4777.</p>
       </div>
       <div class="card">
-        <h3>2. BRANCHER CLAUDE CODE</h3>
+        <h3 data-i18n="step2_t">2. BRANCHER CLAUDE CODE</h3>
         <p class="mono" style="color:var(--gold)">npm run install-hooks</p>
-        <p>Idempotent, garde tes hooks existants, sauvegarde ton <span class="mono">settings.json</span>.</p>
+        <p data-i18n="step2_d">Idempotent, garde tes hooks existants, sauvegarde ton settings.json.</p>
       </div>
       <div class="card">
-        <h3>3. L'APP MACOS</h3>
+        <h3 data-i18n="step3_t">3. L'APP MACOS</h3>
         <p class="mono" style="color:var(--gold)">npm run build:mac</p>
-        <p>Glisse <span class="mono">Terre du Milieu.app</span> dans Applications. Prêt d'un double-clic.</p>
+        <p data-i18n="step3_d">Glisse Terre du Milieu.app dans Applications. Prêt d'un double-clic.</p>
       </div>
     </div>
   </div>
@@ -389,13 +412,287 @@ code, .mono{ font-family: ui-monospace, Menlo, monospace }
 <footer>
   <div class="wrap">
     <p class="pixel">PALANTÍR</p>
-    <p>Carte de la Terre du Milieu pour Claude Code · tout l'art est dessiné en code · licence MIT</p>
-    <p><a href="https://github.com/WedooitScom/lotr-agent-map" target="_blank" rel="noopener">github.com/WedooitScom/lotr-agent-map ↗</a></p>
+    <p data-i18n="footer_line">Carte de la Terre du Milieu pour Claude Code · tout l'art est dessiné en code · licence MIT</p>
+    <p><a href="https://github.com/WedooitScom/PALANTIR" target="_blank" rel="noopener">github.com/WedooitScom/PALANTIR ↗</a></p>
   </div>
 </footer>
 
 <script>
 (function(){
+  var STR = {
+    fr: {
+      subtitle:"La pierre qui montre, en direct, ce que font tes agents Claude Code — quelque part en Terre du Milieu.",
+      tagline:"Carte pixel-art · temps réel · zéro dépendance",
+      cta_github:"Voir le code sur GitHub ↗",
+      copy_cmd:"Copier la commande",
+      port_prefix:"s'ouvre sur",
+      shot_alt:"Capture d'écran de la carte de la Terre du Milieu : plusieurs compagnies actives, deux balises allumées réclamant une réponse, et la chronique qui défile à droite.",
+      shot_caption:"Deux balises allumées, des troupes en chemin, la chronique qui tourne — une vraie session Claude Code, vue depuis la carte.",
+      eyebrow1:"Le principe", h2_1:"Chaque session devient une compagnie",
+      lede1:"Palantír branche ses hooks sur Claude Code et transforme ce qui tourne vraiment dans ton terminal en une carte vivante. Une session Claude Code s'installe sur un territoire et prend l'apparence d'un hobbit ; chacun de ses sous-agents devient un nain, un magicien, un elfe ou un troll selon ce qu'il fait. Quand un agent attend ta réponse, une balise s'allume sur la carte — exactement comme à Gondor.",
+      role_hobbit:"Hobbit", desc_hobbit:"une session Claude Code",
+      role_nain:"Nain à l'enclume", desc_nain:"écrit du code (Edit, Write…)",
+      role_magicien:"Magicien", desc_magicien:"réfléchit, lit (Read, TodoWrite, MCP…)",
+      role_eclaireur:"Elfe éclaireur", desc_eclaireur:"cherche (Grep, Glob, WebSearch, WebFetch)",
+      role_artiste:"Elfe artiste", desc_artiste:"design, frontend, artifacts",
+      role_troll:"Troll", desc_troll:"commandes et tests (Bash)",
+      role_balise:"Balise + « ! »", desc_balise:"attend ta réponse",
+      role_feu:"Feu de camp + « zzz »", desc_feu:"au repos (Stop)",
+      role_aigle:"Aigle", desc_aigle:"message entre agents (SendMessage)",
+      eyebrow2:"Ce que tu vois", h2_2:"Une carte, pas un tableau de bord",
+      card1_t:"CARTE EN DIRECT", card1_d:"SSE en temps réel : chaque hook Claude Code (session, outil, permission, fin) déplace un personnage sur la carte, sans rafraîchir la page.",
+      card2_t:"ALLER À LA SESSION", card2_d:"Un clic sur un personnage qui attend met au premier plan la vraie session : Terminal, iTerm2, VS Code ou l'app Claude.",
+      card3_t:"CONSEIL D'ELROND", card3_d:"Une chronique qui annonce les événements qui comptent : nouvelle session, sous-agent en mission, seuils d'usage franchis.",
+      card4_t:"LEMBAS & GRENIERS", card4_d:"Les limites 5 h et 7 j de Claude lues depuis la status line ou l'app macOS, avec compte à rebours et ombre du Mordor à 80 %.",
+      card5_t:"SON & AMBIANCE", card5_d:"Gigue celtique 8-bit générée en WebAudio, effets sonores (enclume, cor, aigle) et musique qui s'assombrit quand un agent attend.",
+      card6_t:"JOUR & NUIT", card6_d:"Le cycle jour/nuit de la carte suit l'heure locale — la Comté s'endort quand toi aussi tu devrais.",
+      card7_t:"APP MACOS NATIVE", card7_d:"Barre de menus, badge « 🔥N », notifications et musique perso, sans Xcode ni dépendance — AppKit + WebKit purs.",
+      card8_t:"SIX LANGUES, TROIS INVENTÉES", card8_d:"Français, English, italiano, español, 日本語 — et l'elfique, le nain et l'entique, trois vraies conlangs avec glose.",
+      eyebrow3:"Les territoires", h2_3:"Où s'installent tes compagnies",
+      lede3:"Chaque projet trouve sa place sur la carte, du plus paisible au plus périlleux.",
+      terr_shire:"LA COMTÉ", terr_rivendell:"FONDCOMBE", terr_moria:"LA MORIA", terr_mordor:"LE MORDOR",
+      eyebrow4:"Veille sur tes limites", h2_4:"Les jauges du voyageur",
+      lede4:"Deux jauges empruntées aux provisions du Hobbit, remplies par ta vraie consommation Claude.",
+      gauge1_label:"🍞 LEMBAS — FENÊTRE 5 H", gauge1_small:"52 % · reset dans 2 h 14",
+      gauge2_label:"🌾 GRENIERS — FENÊTRE 7 J", gauge2_small:"28 % · reset dans 4 j",
+      eyebrow5:"Langues inventées", h2_5:"Même la carte a son propre accent",
+      lede5:"Trois conlangs écrites à la main, sans aucun emprunt à Tolkien, avec le français en glose.",
+      conlang1:"la langue des elfes — fluide, titres ornés ✧",
+      conlang2:"la langue des nains — consonnes groupées, runes",
+      conlang3:"la langue des Ents — mots étirés, lents",
+      eyebrow6:"Installer", h2_6:"Trois commandes pour partir",
+      step1_t:"1. LANCER LA CARTE", step1_d:"Node ≥ 18, aucune autre dépendance. S'ouvre sur 127.0.0.1:4777.",
+      step2_t:"2. BRANCHER CLAUDE CODE", step2_d:"Idempotent, garde tes hooks existants, sauvegarde ton settings.json.",
+      step3_t:"3. L'APP MACOS", step3_d:"Glisse Terre du Milieu.app dans Applications. Prêt d'un double-clic.",
+      footer_line:"Carte de la Terre du Milieu pour Claude Code · tout l'art est dessiné en code · licence MIT"
+    },
+    en: {
+      subtitle:"The seeing-stone that shows, live, what your Claude Code agents are doing — somewhere in Middle-earth.",
+      tagline:"Pixel-art map · real time · zero dependencies",
+      cta_github:"View the code on GitHub ↗",
+      copy_cmd:"Copy the command",
+      port_prefix:"opens at",
+      shot_alt:"Screenshot of the Middle-earth map: several active companies, two lit beacons asking for a reply, and the chronicle scrolling on the right.",
+      shot_caption:"Two beacons lit, troops on the march, the chronicle still scrolling — a real Claude Code session, seen from the map.",
+      eyebrow1:"The idea", h2_1:"Every session becomes a company",
+      lede1:"Palantír hooks into Claude Code and turns whatever is actually running in your terminal into a living map. A Claude Code session settles on a territory and looks like a hobbit; each of its subagents becomes a dwarf, a wizard, an elf or a troll depending on what it's doing. When an agent is waiting on you, a beacon lights up on the map — just like in Gondor.",
+      role_hobbit:"Hobbit", desc_hobbit:"a Claude Code session",
+      role_nain:"Dwarf at the anvil", desc_nain:"writes code (Edit, Write…)",
+      role_magicien:"Wizard", desc_magicien:"thinks, reads (Read, TodoWrite, MCP…)",
+      role_eclaireur:"Elf scout", desc_eclaireur:"searches (Grep, Glob, WebSearch, WebFetch)",
+      role_artiste:"Elf artist", desc_artiste:"design, frontend, artifacts",
+      role_troll:"Troll", desc_troll:"commands and tests (Bash)",
+      role_balise:"Beacon + “!”", desc_balise:"waiting on your reply",
+      role_feu:"Campfire + “zzz”", desc_feu:"resting (Stop)",
+      role_aigle:"Eagle", desc_aigle:"message between agents (SendMessage)",
+      eyebrow2:"What you see", h2_2:"A map, not a dashboard",
+      card1_t:"LIVE MAP", card1_d:"Real-time SSE: every Claude Code hook (session, tool, permission, end) moves a character on the map, no page refresh.",
+      card2_t:"JUMP TO THE SESSION", card2_d:"Click a waiting character to bring the real session to the front: Terminal, iTerm2, VS Code or the Claude app.",
+      card3_t:"COUNCIL OF ELROND", card3_d:"A chronicle that only announces what matters: a new session, a subagent on a mission, usage thresholds crossed.",
+      card4_t:"LEMBAS & STORES", card4_d:"Claude's 5-hour and 7-day limits, read from the status line or the macOS app, with a countdown and Mordor's shadow at 80%.",
+      card5_t:"SOUND & AMBIENCE", card5_d:"An original 8-bit Celtic jig generated with WebAudio, sound effects (anvil, horn, eagle) and music that darkens while an agent is waiting.",
+      card6_t:"DAY & NIGHT", card6_d:"The map's day/night cycle follows local time — the Shire goes to sleep right when you should too.",
+      card7_t:"NATIVE MACOS APP", card7_d:"Menu bar, a “🔥N” badge, notifications and your own music, no Xcode and no dependencies — plain AppKit + WebKit.",
+      card8_t:"SIX LANGUAGES, THREE INVENTED", card8_d:"Français, English, italiano, español, 日本語 — plus Elvish, Dwarvish and Entish, three real conlangs with a gloss.",
+      eyebrow3:"The territories", h2_3:"Where your companies settle",
+      lede3:"Every project finds its place on the map, from the most peaceful to the most perilous.",
+      terr_shire:"THE SHIRE", terr_rivendell:"RIVENDELL", terr_moria:"MORIA", terr_mordor:"MORDOR",
+      eyebrow4:"Watching your limits", h2_4:"The traveller's gauges",
+      lede4:"Two gauges borrowed from a hobbit's pack, filled with your real Claude usage.",
+      gauge1_label:"🍞 LEMBAS — 5H WINDOW", gauge1_small:"52% · resets in 2h 14",
+      gauge2_label:"🌾 STORES — 7-DAY WINDOW", gauge2_small:"28% · resets in 4d",
+      eyebrow5:"Invented languages", h2_5:"Even the map has its own accent",
+      lede5:"Three hand-written conlangs, with nothing borrowed from Tolkien, glossed in French in the app.",
+      conlang1:"the elves' tongue — flowing, ornate titles ✧",
+      conlang2:"the dwarves' tongue — clustered consonants, runes",
+      conlang3:"the Ents' tongue — stretched-out words, slow",
+      eyebrow6:"Install it", h2_6:"Three commands to get going",
+      step1_t:"1. START THE MAP", step1_d:"Node ≥ 18, no other dependency. Opens at 127.0.0.1:4777.",
+      step2_t:"2. HOOK UP CLAUDE CODE", step2_d:"Idempotent, keeps your existing hooks, backs up your settings.json.",
+      step3_t:"3. THE MACOS APP", step3_d:"Drag Terre du Milieu.app into Applications. Ready with one double-click.",
+      footer_line:"A Middle-earth map for Claude Code · every bit of art is drawn in code · MIT license"
+    },
+    it: {
+      subtitle:"La pietra che mostra, in diretta, cosa stanno facendo i tuoi agenti Claude Code — da qualche parte nella Terra di Mezzo.",
+      tagline:"Mappa pixel-art · tempo reale · zero dipendenze",
+      cta_github:"Vedi il codice su GitHub ↗",
+      copy_cmd:"Copia il comando",
+      port_prefix:"si apre su",
+      shot_alt:"Schermata della mappa della Terra di Mezzo: diverse compagnie attive, due fari accesi in attesa di risposta, e la cronaca che scorre a destra.",
+      shot_caption:"Due fari accesi, truppe in marcia, la cronaca che scorre — una vera sessione Claude Code, vista dalla mappa.",
+      eyebrow1:"Il principio", h2_1:"Ogni sessione diventa una compagnia",
+      lede1:"Palantír si collega a Claude Code tramite i suoi hook e trasforma ciò che accade davvero nel tuo terminale in una mappa viva. Una sessione Claude Code si stabilisce su un territorio e prende le sembianze di uno hobbit; ogni suo sottoagente diventa un nano, un mago, un elfo o un troll a seconda di cosa sta facendo. Quando un agente aspetta una tua risposta, un faro si accende sulla mappa — proprio come a Gondor.",
+      role_hobbit:"Hobbit", desc_hobbit:"una sessione Claude Code",
+      role_nain:"Nano all'incudine", desc_nain:"scrive codice (Edit, Write…)",
+      role_magicien:"Mago", desc_magicien:"riflette, legge (Read, TodoWrite, MCP…)",
+      role_eclaireur:"Elfo esploratore", desc_eclaireur:"cerca (Grep, Glob, WebSearch, WebFetch)",
+      role_artiste:"Elfo artista", desc_artiste:"design, frontend, artifact",
+      role_troll:"Troll", desc_troll:"comandi e test (Bash)",
+      role_balise:"Faro + «!»", desc_balise:"aspetta una tua risposta",
+      role_feu:"Falò + «zzz»", desc_feu:"a riposo (Stop)",
+      role_aigle:"Aquila", desc_aigle:"messaggio tra agenti (SendMessage)",
+      eyebrow2:"Cosa vedi", h2_2:"Una mappa, non una dashboard",
+      card1_t:"MAPPA IN DIRETTA", card1_d:"SSE in tempo reale: ogni hook di Claude Code (sessione, strumento, permesso, fine) muove un personaggio sulla mappa, senza ricaricare la pagina.",
+      card2_t:"VAI ALLA SESSIONE", card2_d:"Un clic su un personaggio in attesa porta in primo piano la vera sessione: Terminal, iTerm2, VS Code o l'app Claude.",
+      card3_t:"CONCILIO DI ELROND", card3_d:"Una cronaca che annuncia solo ciò che conta: nuova sessione, sottoagente in missione, soglie di utilizzo superate.",
+      card4_t:"LEMBAS E SCORTE", card4_d:"I limiti di 5 ore e 7 giorni di Claude letti dalla status line o dall'app macOS, con conto alla rovescia e l'ombra di Mordor all'80%.",
+      card5_t:"SUONO E ATMOSFERA", card5_d:"Una giga celtica 8-bit generata con WebAudio, effetti sonori (incudine, corno, aquila) e musica che si incupisce quando un agente è in attesa.",
+      card6_t:"GIORNO E NOTTE", card6_d:"Il ciclo giorno/notte della mappa segue l'ora locale — la Contea si addormenta proprio quando dovresti farlo anche tu.",
+      card7_t:"APP MACOS NATIVA", card7_d:"Barra dei menu, badge «🔥N», notifiche e musica personale, senza Xcode né dipendenze — solo AppKit + WebKit.",
+      card8_t:"SEI LINGUE, TRE INVENTATE", card8_d:"Français, English, italiano, español, 日本語 — più l'elfico, il nanico e l'entico, tre vere conlang con glossa.",
+      eyebrow3:"I territori", h2_3:"Dove si stabiliscono le tue compagnie",
+      lede3:"Ogni progetto trova il suo posto sulla mappa, dal più tranquillo al più pericoloso.",
+      terr_shire:"LA CONTEA", terr_rivendell:"GRAN BURRONE", terr_moria:"MORIA", terr_mordor:"MORDOR",
+      eyebrow4:"Veglia sui tuoi limiti", h2_4:"Le scorte del viandante",
+      lede4:"Due indicatori presi in prestito dalla dispensa di uno hobbit, riempiti dal tuo vero consumo di Claude.",
+      gauge1_label:"🍞 LEMBAS — FINESTRA 5H", gauge1_small:"52% · si azzera tra 2h 14",
+      gauge2_label:"🌾 SCORTE — FINESTRA 7G", gauge2_small:"28% · si azzera tra 4g",
+      eyebrow5:"Lingue inventate", h2_5:"Anche la mappa ha il suo accento",
+      lede5:"Tre conlang scritte a mano, senza nulla preso in prestito da Tolkien, con il francese come glossa nell'app.",
+      conlang1:"la lingua degli elfi — fluida, titoli ornati ✧",
+      conlang2:"la lingua dei nani — consonanti ammassate, rune",
+      conlang3:"la lingua degli Ent — parole allungate, lente",
+      eyebrow6:"Installazione", h2_6:"Tre comandi per partire",
+      step1_t:"1. AVVIA LA MAPPA", step1_d:"Node ≥ 18, nessun'altra dipendenza. Si apre su 127.0.0.1:4777.",
+      step2_t:"2. COLLEGA CLAUDE CODE", step2_d:"Idempotente, mantiene i tuoi hook esistenti, salva una copia del tuo settings.json.",
+      step3_t:"3. L'APP MACOS", step3_d:"Trascina Terre du Milieu.app dentro Applicazioni. Pronta con un doppio clic.",
+      footer_line:"Una mappa della Terra di Mezzo per Claude Code · ogni elemento grafico è disegnato nel codice · licenza MIT"
+    },
+    es: {
+      subtitle:"La piedra que muestra, en directo, lo que hacen tus agentes Claude Code — en algún lugar de la Tierra Media.",
+      tagline:"Mapa pixel-art · tiempo real · cero dependencias",
+      cta_github:"Ver el código en GitHub ↗",
+      copy_cmd:"Copiar el comando",
+      port_prefix:"se abre en",
+      shot_alt:"Captura de la pantalla del mapa de la Tierra Media: varias compañías activas, dos almenaras encendidas esperando respuesta, y la crónica desplazándose a la derecha.",
+      shot_caption:"Dos almenaras encendidas, tropas en marcha, la crónica en movimiento — una sesión real de Claude Code, vista desde el mapa.",
+      eyebrow1:"La idea", h2_1:"Cada sesión se convierte en una compañía",
+      lede1:"Palantír se conecta a Claude Code mediante hooks y convierte lo que realmente ocurre en tu terminal en un mapa vivo. Una sesión de Claude Code se instala en un territorio y toma la forma de un hobbit; cada uno de sus subagentes se convierte en un enano, un mago, un elfo o un trol según lo que esté haciendo. Cuando un agente espera tu respuesta, se enciende una almenara en el mapa — igual que en Gondor.",
+      role_hobbit:"Hobbit", desc_hobbit:"una sesión de Claude Code",
+      role_nain:"Enano en el yunque", desc_nain:"escribe código (Edit, Write…)",
+      role_magicien:"Mago", desc_magicien:"piensa, lee (Read, TodoWrite, MCP…)",
+      role_eclaireur:"Elfo explorador", desc_eclaireur:"busca (Grep, Glob, WebSearch, WebFetch)",
+      role_artiste:"Elfo artista", desc_artiste:"diseño, frontend, artifacts",
+      role_troll:"Trol", desc_troll:"comandos y pruebas (Bash)",
+      role_balise:"Almenara + «¡!»", desc_balise:"espera tu respuesta",
+      role_feu:"Hoguera + «zzz»", desc_feu:"en reposo (Stop)",
+      role_aigle:"Águila", desc_aigle:"mensaje entre agentes (SendMessage)",
+      eyebrow2:"Lo que ves", h2_2:"Un mapa, no un panel de control",
+      card1_t:"MAPA EN VIVO", card1_d:"SSE en tiempo real: cada hook de Claude Code (sesión, herramienta, permiso, fin) mueve a un personaje en el mapa, sin recargar la página.",
+      card2_t:"IR A LA SESIÓN", card2_d:"Un clic sobre un personaje en espera trae al frente la sesión real: Terminal, iTerm2, VS Code o la app de Claude.",
+      card3_t:"CONCILIO DE ELROND", card3_d:"Una crónica que solo anuncia lo que importa: nueva sesión, subagente en misión, umbrales de uso superados.",
+      card4_t:"LEMBAS Y RESERVAS", card4_d:"Los límites de 5 horas y 7 días de Claude, leídos desde la status line o la app de macOS, con cuenta atrás y la sombra de Mordor al 80%.",
+      card5_t:"SONIDO Y AMBIENTE", card5_d:"Una giga céltica 8-bit generada con WebAudio, efectos de sonido (yunque, cuerno, águila) y música que se oscurece mientras un agente espera.",
+      card6_t:"DÍA Y NOCHE", card6_d:"El ciclo día/noche del mapa sigue la hora local — la Comarca se duerme justo cuando tú también deberías.",
+      card7_t:"APP NATIVA DE MACOS", card7_d:"Barra de menú, insignia «🔥N», notificaciones y tu propia música, sin Xcode ni dependencias — solo AppKit + WebKit.",
+      card8_t:"SEIS IDIOMAS, TRES INVENTADOS", card8_d:"Français, English, italiano, español, 日本語 — además del élfico, el enano y el éntico, tres conlangs reales con glosa.",
+      eyebrow3:"Los territorios", h2_3:"Dónde se instalan tus compañías",
+      lede3:"Cada proyecto encuentra su lugar en el mapa, del más tranquilo al más peligroso.",
+      terr_shire:"LA COMARCA", terr_rivendell:"RIVENDEL", terr_moria:"MORIA", terr_mordor:"MORDOR",
+      eyebrow4:"Vigila tus límites", h2_4:"Las reservas del viajero",
+      lede4:"Dos medidores tomados de las provisiones de un hobbit, llenados con tu consumo real de Claude.",
+      gauge1_label:"🍞 LEMBAS — VENTANA DE 5H", gauge1_small:"52% · se reinicia en 2h 14",
+      gauge2_label:"🌾 RESERVAS — VENTANA DE 7D", gauge2_small:"28% · se reinicia en 4d",
+      eyebrow5:"Idiomas inventados", h2_5:"Hasta el mapa tiene su propio acento",
+      lede5:"Tres conlangs escritas a mano, sin tomar nada prestado de Tolkien, con el francés como glosa en la app.",
+      conlang1:"la lengua de los elfos — fluida, títulos ornamentados ✧",
+      conlang2:"la lengua de los enanos — consonantes agrupadas, runas",
+      conlang3:"la lengua de los Ents — palabras alargadas, lentas",
+      eyebrow6:"Instalación", h2_6:"Tres comandos para empezar",
+      step1_t:"1. INICIAR EL MAPA", step1_d:"Node ≥ 18, sin ninguna otra dependencia. Se abre en 127.0.0.1:4777.",
+      step2_t:"2. CONECTAR CLAUDE CODE", step2_d:"Idempotente, conserva tus hooks existentes, guarda una copia de tu settings.json.",
+      step3_t:"3. LA APP DE MACOS", step3_d:"Arrastra Terre du Milieu.app a Aplicaciones. Lista con un doble clic.",
+      footer_line:"Un mapa de la Tierra Media para Claude Code · todo el arte está dibujado en código · licencia MIT"
+    },
+    ja: {
+      subtitle:"パランティア — Claude Codeのエージェントたちが、中つ国のどこかで今何をしているかをリアルタイムに映し出す石。",
+      tagline:"ドット絵の地図・リアルタイム・依存なし",
+      cta_github:"GitHubでコードを見る ↗",
+      copy_cmd:"コマンドをコピー",
+      port_prefix:"起動先:",
+      shot_alt:"中つ国の地図のスクリーンショット。複数のカンパニーが活動中で、返信を待つ狼煙が2つ灯り、右側に年代記が流れている。",
+      shot_caption:"狼煙が2つ灯り、部隊が進軍し、年代記が流れ続ける — 地図から見た、本物のClaude Codeセッション。",
+      eyebrow1:"しくみ", h2_1:"セッションはひとつのカンパニーになる",
+      lede1:"パランティアはClaude Codeのフックに接続し、ターミナルで実際に起きていることを生きた地図に変える。Claude Codeのセッションはある領地に居を構えホビットの姿を取り、サブエージェントはそれぞれ何をしているかに応じてドワーフ、魔法使い、エルフ、トロルになる。エージェントが返信を待っていると、地図上に狼煙が上がる — ゴンドールのように。",
+      role_hobbit:"ホビット", desc_hobbit:"Claude Codeのセッション",
+      role_nain:"鍛冶場のドワーフ", desc_nain:"コードを書く (Edit, Write…)",
+      role_magicien:"魔法使い", desc_magicien:"考え、読む (Read, TodoWrite, MCP…)",
+      role_eclaireur:"エルフの斥候", desc_eclaireur:"探す (Grep, Glob, WebSearch, WebFetch)",
+      role_artiste:"エルフの芸術家", desc_artiste:"デザイン、フロントエンド、artifact",
+      role_troll:"トロル", desc_troll:"コマンドとテスト (Bash)",
+      role_balise:"狼煙 + 「!」", desc_balise:"返信待ち",
+      role_feu:"キャンプファイア + 「zzz」", desc_feu:"休止中 (Stop)",
+      role_aigle:"鷲", desc_aigle:"エージェント間のメッセージ (SendMessage)",
+      eyebrow2:"見えるもの", h2_2:"ダッシュボードではなく地図",
+      card1_t:"リアルタイムの地図", card1_d:"リアルタイムSSE: Claude Codeの各フック(セッション、ツール、許可、終了)がページを再読み込みせずに地図上のキャラクターを動かす。",
+      card2_t:"セッションへジャンプ", card2_d:"待機中のキャラクターをクリックすると、本物のセッション(ターミナル、iTerm2、VS Code、Claudeアプリ)が前面に出る。",
+      card3_t:"エルロンドの会議", card3_d:"重要な出来事だけを知らせる年代記: 新しいセッション、任務に出たサブエージェント、使用量のしきい値超過。",
+      card4_t:"レンバスと蓄え", card4_d:"ステータスラインやmacOSアプリから読み取るClaudeの5時間・7日間の上限。カウントダウンと、80%でのモルドールの影つき。",
+      card5_t:"音とアンビエンス", card5_d:"WebAudioで生成したオリジナルの8ビット・ケルト調ジグ、効果音(鍛冶、角笛、鷲)、エージェントが待っている間は暗く沈む音楽。",
+      card6_t:"昼と夜", card6_d:"地図の昼夜サイクルは現地時刻に従う — ホビット庄は、あなたが眠るべきときに眠りにつく。",
+      card7_t:"ネイティブmacOSアプリ", card7_d:"メニューバー、「🔥N」バッジ、通知、自分の音楽。Xcodeも依存関係も不要 — 純粋なAppKit + WebKit。",
+      card8_t:"6つの言語、うち3つは創作言語", card8_d:"Français、English、italiano、español、日本語 — さらにエルフ語、ドワーフ語、エント語という3つの本物のconlangに対訳つき。",
+      eyebrow3:"領地", h2_3:"カンパニーが居を構える場所",
+      lede3:"どのプロジェクトも、最も穏やかな場所から最も危険な場所まで、地図上に居場所を見つける。",
+      terr_shire:"ホビット庄", terr_rivendell:"裂け谷", terr_moria:"モリア", terr_mordor:"モルドール",
+      eyebrow4:"上限を見張る", h2_4:"旅人の計器",
+      lede4:"ホビットの食料袋から借りてきた2つの計器が、実際のClaudeの使用量で満たされていく。",
+      gauge1_label:"🍞 レンバス — 5時間枠", gauge1_small:"52%・2時間14分でリセット",
+      gauge2_label:"🌾 蓄え — 7日間枠", gauge2_small:"28%・4日でリセット",
+      eyebrow5:"創作言語", h2_5:"地図にもなまりがある",
+      lede5:"トールキンから一切借用せずに手作りされた3つのconlang。アプリ内ではフランス語で対訳が示される。",
+      conlang1:"エルフの言葉 — 流麗で、飾られた称号 ✧",
+      conlang2:"ドワーフの言葉 — 子音の密集、ルーン文字",
+      conlang3:"エントの言葉 — 間延びした、ゆっくりとした言葉",
+      eyebrow6:"インストール", h2_6:"始めるための3つのコマンド",
+      step1_t:"1. 地図を起動", step1_d:"Node ≥ 18、それ以外の依存関係なし。127.0.0.1:4777で開く。",
+      step2_t:"2. Claude Codeを接続", step2_d:"冪等な操作で、既存のフックを保持し、settings.jsonをバックアップする。",
+      step3_t:"3. macOSアプリ", step3_d:"Terre du Milieu.appを「アプリケーション」フォルダにドラッグ。ダブルクリックですぐに使える。",
+      footer_line:"Claude Codeのための中つ国地図 · すべてのアートはコードで描かれている · MITライセンス"
+    }
+  };
+
+  var REAL = ['fr','en','it','es','ja'];
+  var STORE_KEY = 'palantir_lang';
+
+  function detect(){
+    try{
+      var saved = localStorage.getItem(STORE_KEY);
+      if (saved && REAL.indexOf(saved) !== -1) return saved;
+    }catch(e){}
+    var nav = (navigator.language || 'fr').toLowerCase().slice(0,2);
+    return REAL.indexOf(nav) !== -1 ? nav : 'fr';
+  }
+
+  function applyLang(lang){
+    var dict = STR[lang] || STR.fr;
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var key = el.getAttribute('data-i18n');
+      if (dict[key] != null) el.textContent = dict[key];
+    });
+    document.querySelectorAll('[data-i18n-alt]').forEach(function(el){
+      var key = el.getAttribute('data-i18n-alt');
+      if (dict[key] != null) el.setAttribute('alt', dict[key]);
+    });
+    document.querySelectorAll('.copybtn').forEach(function(btn){
+      btn.setAttribute('aria-label', (dict.copy_cmd || 'Copy') + ' ' + btn.getAttribute('data-copy'));
+    });
+    document.querySelectorAll('.langbtn').forEach(function(btn){
+      var isCurrent = btn.getAttribute('data-lang') === lang;
+      btn.setAttribute('aria-current', isCurrent ? 'true' : 'false');
+    });
+    try{ document.documentElement.setAttribute('lang', lang); }catch(e){}
+    try{ localStorage.setItem(STORE_KEY, lang); }catch(e){}
+  }
+
+  document.querySelectorAll('.langbtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      applyLang(btn.getAttribute('data-lang'));
+    });
+  });
+
+  applyLang(detect());
+
   document.querySelectorAll('.copybtn').forEach(function(btn){
     btn.addEventListener('click', function(){
       var text = btn.getAttribute('data-copy');

@@ -67,7 +67,7 @@ final class UsageFetcher {
         var req = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-        req.setValue("lotr-agent-map", forHTTPHeaderField: "User-Agent")
+        req.setValue("palantir-map", forHTTPHeaderField: "User-Agent")
         session.dataTask(with: req) { [weak self] data, resp, _ in
             guard let self else { return }
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0

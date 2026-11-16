@@ -1,5 +1,5 @@
 {
-  "name": "lotr-agent-map",
+  "name": "palantir",
   "version": "1.0.0",
   "private": true,
   "description": "Carte de la Terre du Milieu : visualise tes agents Claude Code comme une carte pixel-art fantasy.",

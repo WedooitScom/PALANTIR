@@ -1,0 +1,13 @@
+export const HOOK_DURATION = 85;
+export const TITLE_DURATION = 95;
+export const SHOT_DURATION = 130;
+export const FEATURES_DURATION = 110;
+export const CTA_DURATION = 100;
+
+export const HOOK_START = 0;
+export const TITLE_START = HOOK_START + HOOK_DURATION;
+export const SHOT_START = TITLE_START + TITLE_DURATION;
+export const FEATURES_START = SHOT_START + SHOT_DURATION;
+export const CTA_START = FEATURES_START + FEATURES_DURATION;
+
+export const TOTAL_DURATION = CTA_START + CTA_DURATION;

@@ -369,6 +369,55 @@
     draw(ctx, 'letter', x - 1, y + 2, {});
   }
 
+  // Tiny procedural figures for the rare ambient crossings (no sprite sheet needed).
+  function px(ctx, color, x, y, w, h) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w || 1, h || 1);
+  }
+
+  /** Rider of Rohan galloping right; (x, y) = hooves line. */
+  function drawRider(ctx, x, y, t) {
+    const g = Math.floor(t * 10) % 2;
+    px(ctx, '#6b4a2b', x - 3, y - 4, 7, 2); // horse body
+    px(ctx, '#6b4a2b', x + 3, y - 6, 2, 2); // neck / head
+    px(ctx, '#3b2716', x - 4, y - 5, 1, 2); // tail
+    px(ctx, '#3b2716', g ? x - 3 : x - 2, y - 2, 1, 2);
+    px(ctx, '#3b2716', g ? x + 3 : x + 2, y - 2, 1, 2);
+    px(ctx, '#2f5130', x - 1, y - 8, 2, 4); // green cloak
+    px(ctx, '#d8b878', x - 1, y - 9, 2, 1); // golden hair
+    px(ctx, '#c9c2b0', x + 1, y - 12, 1, 4); // spear
+  }
+
+  /** Winged nazgûl, flying left; (x, y) = centre. */
+  function drawNazgul(ctx, x, y, t) {
+    const up = Math.floor(t * 4) % 2;
+    const c = '#120c14';
+    px(ctx, c, x - 1, y - 1, 4, 2); // body
+    px(ctx, c, x - 3, y, 2, 1); // head / neck
+    px(ctx, c, x + 3, y + 1, 3, 1); // tail
+    if (up) {
+      px(ctx, c, x - 1, y - 3, 3, 2);
+      px(ctx, c, x - 2, y - 5, 2, 2);
+      px(ctx, c, x - 3, y - 6, 1, 1);
+    } else {
+      px(ctx, c, x - 1, y + 1, 3, 2);
+      px(ctx, c, x - 2, y + 3, 2, 1);
+      px(ctx, c, x - 4, y + 4, 2, 1);
+    }
+    px(ctx, '#2a1c30', x + 1, y - 2, 1, 1); // rider
+  }
+
+  /** Gollum crouching along; (x, y) = feet line. */
+  function drawGollum(ctx, x, y, t, flip) {
+    const k = Math.floor(t * 6) % 2;
+    const d = flip ? -1 : 1;
+    px(ctx, '#8e9a6a', x - 1, y - 3, 3, 2); // hunched back
+    px(ctx, '#a7b07c', x + d * 2, y - 4, 2, 2); // head
+    px(ctx, '#d8f070', x + d * (d > 0 ? 3 : 2), y - 4, 1, 1); // pale eye
+    px(ctx, '#7c8858', k ? x - 1 : x, y - 1, 1, 1);
+    px(ctx, '#7c8858', k ? x + 1 : x + 2, y - 1, 1, 1);
+  }
+
   /** Renders a legend icon into a small canvas (scale = CSS px per sprite px). */
   function drawIcon(canvas, kind, t, scale) {
     scale = scale || 2;
@@ -400,6 +449,11 @@
         break;
       case 'rain': drawWeatherIcon(c, t, false); break;
       case 'storm': drawWeatherIcon(c, t, true); break;
+      case 'riders':
+        drawRider(c, fx - 4, fy, t);
+        drawRider(c, fx + 5, fy - 2, t + 0.4);
+        break;
+      case 'nazgul': drawNazgul(c, fx + 2, 10, t); break;
       default: break;
     }
     const ctx = canvas.getContext('2d');
@@ -409,7 +463,7 @@
   }
 
   window.Sprites = {
-    PAL, DEFS, get, size, draw, drawFeet, drawAvatar, drawWork, drawCampfire, drawBeacon, drawEagle, drawPorter, drawIcon,
+    PAL, DEFS, get, size, draw, drawFeet, drawAvatar, drawWork, drawCampfire, drawBeacon, drawEagle, drawPorter, drawIcon, drawRider, drawNazgul, drawGollum,
     strikeIndex, strikeDown,
   };
 })();

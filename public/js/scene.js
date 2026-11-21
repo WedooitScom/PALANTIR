@@ -209,6 +209,7 @@
       this.entities = new Map();
       this.particles = [];
       this.flights = [];
+      this.travelers = []; // rare one-shot crossings (riders, nazgûl, gollum), separate from the eagle
       this.hover = null;
       this.selected = null;
       this.nightEnabled = true;
@@ -339,6 +340,59 @@
       if (!dst) dst = { x: clamp(src.x + (Math.random() < 0.5 ? -90 : 90), -10, W + 10), y: -12 };
       const dist = Math.hypot(dst.x - src.x, dst.y - src.y);
       this.flights.push({ x0: src.x, y0: src.y - 12, x1: dst.x, y1: dst.y, t0: null, dur: clamp(dist / 45, 1.6, 6), to: fx.to, arc: Math.min(28, dist * 0.25) });
+    }
+
+    /** One-shot crossing: { type: 'riders' | 'nazgul' | 'gollum' }. Coordinates come from the map. */
+    addTraveler(fx) {
+      if (!fx || this.travelers.length > 4) return;
+      if (fx.type === 'riders') {
+        const T = TERR_BY_KEY.rohan;
+        const n = 3 + Math.floor(Math.random() * 3);
+        const riders = [];
+        for (let i = 0; i < n; i++) riders.push({ dx: -i * 7 - Math.random() * 3, dy: (i % 2 ? 2 : -1) + Math.round(Math.random() * 2), ph: Math.random() });
+        this.travelers.push({ type: 'riders', x0: T.cx - T.rx - 14, x1: T.cx + T.rx + 14 + n * 7, y: T.cy + 2, dur: 2.4 + Math.random() * 0.6, t0: null, riders });
+      } else if (fx.type === 'nazgul') {
+        const T = TERR_BY_KEY.mordor;
+        this.travelers.push({ type: 'nazgul', x0: W + 12, y0: T.cy - 30, x1: -16, y1: 40, dur: 9, t0: null, sky: true });
+      } else if (fx.type === 'gollum') {
+        const T = TERR_BY_KEY.moria;
+        const ltr = Math.random() < 0.5;
+        const a = T.cx - T.rx - 8, b = T.cx + T.rx + 10;
+        this.travelers.push({ type: 'gollum', x0: ltr ? a : b, x1: ltr ? b : a, y: T.cy + T.ry + 3, dur: 7, t0: null });
+      }
+    }
+
+    drawTravelers(f, t, sky) {
+      for (let i = this.travelers.length - 1; i >= 0; i--) {
+        const tr = this.travelers[i];
+        if (!!tr.sky !== sky) continue;
+        if (tr.t0 === null) tr.t0 = t;
+        const p = (t - tr.t0) / tr.dur;
+        if (p >= 1) {
+          this.travelers.splice(i, 1);
+          continue;
+        }
+        const fade = Math.min(1, p * 6, (1 - p) * 6);
+        f.globalAlpha = fade;
+        if (tr.type === 'riders') {
+          const x = tr.x0 + (tr.x1 - tr.x0) * p;
+          for (const r of tr.riders) S.drawRider(f, Math.round(x + r.dx), tr.y + r.dy, t + r.ph);
+        } else if (tr.type === 'nazgul') {
+          const x = tr.x0 + (tr.x1 - tr.x0) * p;
+          const y = tr.y0 + (tr.y1 - tr.y0) * p + Math.sin(p * Math.PI * 3) * 4;
+          f.globalAlpha = fade * 0.35;
+          f.fillStyle = '#000';
+          f.fillRect(Math.round(x) - 4, Math.round(y) + 26, 9, 1);
+          f.globalAlpha = fade;
+          S.drawNazgul(f, Math.round(x), Math.round(y), t);
+        } else if (tr.type === 'gollum') {
+          // Creeps, stops, creeps again.
+          const q = p + Math.sin(p * Math.PI * 4) * 0.04;
+          const x = tr.x0 + (tr.x1 - tr.x0) * q;
+          S.drawGollum(f, Math.round(x), tr.y, t, tr.x1 < tr.x0);
+        }
+        f.globalAlpha = 1;
+      }
     }
 
     sparks(x, y, n, colors, spread) {
@@ -581,12 +635,14 @@
 
       this.drawParticles(f, dt);
       this.drawFlights(f, t);
+      this.drawTravelers(f, t, false);
       M.drawClouds(f, w, t, dt);
       this.updateWeather(dt);
       this.drawWeather(f, t);
       const amt = this.forceNight ? M.NIGHT_MAX : this.nightEnabled ? M.nightAmount(new Date()) : 0;
       M.drawNight(f, w, amt, t, lights);
       this.drawShadow(f, t);
+      this.drawTravelers(f, t, true);
       this.drawLightning(f, t, amt);
 
       // Blit.

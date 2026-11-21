@@ -50,6 +50,7 @@ const clients = new Set();
 const userMusic = new UserMusic(process.env.LOTR_USER_MUSIC || null, process.env.LOTR_APP_TOKEN || '');
 
 store.loadUsageState();
+store.loadAchievements();
 const loaded = store.load();
 if (loaded) console.log(`[lotr] ${loaded} événements rechargés depuis ${EVENTS_FILE}`);
 // Token usage from the transcripts (only files under ~/.claude/projects, read incrementally).

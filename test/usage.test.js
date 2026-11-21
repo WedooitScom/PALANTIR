@@ -127,18 +127,19 @@ test('5 h thresholds: one message per level and window, highest level only on a 
     'La moitié des lembas est entamée : 52 % de la limite 5 h',
     "Les lembas s'épuisent : 82 % de la limite 5 h",
     "Les lembas s'épuisent : 91 % de la limite 5 h",
+    'Une ombre ailée passe sur la Terre du Milieu : 95 % de la limite 5 h',
     "Plus de lembas ! Limite 5 h atteinte (100 %) : la compagnie campe jusqu'au reset",
   ]);
   assert.equal(s.chronicle.at(-1).icon, '🏕');
   assert.deepEqual(s.chronicle.filter((e) => e.kind === 'usage').map((e) => [e.key, e.params.pct]), [
-    ['log.five50', 52], ['log.five80', 82], ['log.five80', 91], ['log.five100', 100],
+    ['log.five50', 52], ['log.five80', 82], ['log.five80', 91], ['log.five95', 95], ['log.five100', 100],
   ]);
   // New window: reset announced once, levels re-armed; a jump announces only the highest level.
   tick(3, 2000018000);
   tick(4, 2000018000);
   tick(93, 2000018000);
   tick(94, 2000018000);
-  assert.deepEqual(usageLogs(s).slice(4), [
+  assert.deepEqual(usageLogs(s).slice(5), [
     'Les réserves sont reconstituées (limite 5 h)',
     "Les lembas s'épuisent : 93 % de la limite 5 h",
   ]);
@@ -188,6 +189,28 @@ test('announced thresholds survive a restart (usage-state.json)', async () => {
   assert.equal(s2.usage.real.five.pct, 82);
   s2.ingestStatusline({ rate_limits: { five_hour: { used_percentage: 84, resets_at: 2000000000 } } });
   assert.equal(usageLogs(s2).length, 0);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('95 % threshold: announced once with a nazgul fx, not repeated after a restart', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lotr-usage-'));
+  const file = path.join(dir, 'events.jsonl');
+  const s1 = new Store({ file });
+  const fx = [];
+  s1.on('broadcast', (type, data) => { if (type === 'fx') fx.push(data); });
+  for (const p of [91, 95, 96, 97]) s1.ingestStatusline({ rate_limits: { five_hour: { used_percentage: p, resets_at: 2000000000 } } });
+  assert.deepEqual(s1.chronicle.filter((e) => e.kind === 'usage').map((e) => e.key), ['log.five80', 'log.five95']);
+  assert.equal(s1.chronicle.at(-1).level, 95);
+  assert.deepEqual(fx.map((f) => f.type), ['nazgul']);
+  await new Promise((r) => setTimeout(r, 2200)); // debounced save
+  const s2 = new Store({ file });
+  s2.loadUsageState();
+  assert.ok(s2.usage.real.watch.five.done.includes(95));
+  const fx2 = [];
+  s2.on('broadcast', (type, data) => { if (type === 'fx') fx2.push(data); });
+  s2.ingestStatusline({ rate_limits: { five_hour: { used_percentage: 98, resets_at: 2000000000 } } });
+  assert.equal(usageLogs(s2).length, 0);
+  assert.equal(fx2.length, 0);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

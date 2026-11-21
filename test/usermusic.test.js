@@ -97,6 +97,7 @@ test('log entries carry what the front needs for sounds (tool name, usage level,
   assert.equal(s.chronicle.at(-1).level, 80);
   assert.equal(s.chronicle.at(-1).limit, 'five');
   tick(3, 2000018000);
-  assert.equal(s.chronicle.at(-1).reset, true);
-  assert.equal(s.chronicle.at(-1).key, 'log.reset5');
+  const last = s.chronicle.filter((e) => e.kind === 'usage').at(-1); // a storm_survived badge may follow
+  assert.equal(last.reset, true);
+  assert.equal(last.key, 'log.reset5');
 });

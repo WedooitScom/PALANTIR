@@ -471,6 +471,12 @@ body.side-collapsed .side { display: none; }
 .legend li { display: flex; align-items: center; gap: 6px; line-height: 1; font-size: 17px; }
 .legend canvas { image-rendering: pixelated; flex: none; width: 33px !important; height: 33px !important; }
 .legend.collapsed ul { display: none; }
+.legend.collapsed .legend-badges { display: none; }
+.legend-badges { border-top: 1px solid var(--wood); padding: 4px 10px 6px; }
+.legend-badges ul { padding: 2px 0 0; }
+.badges-title { font-family: var(--pixel); font-size: 9px; color: var(--wood); padding-top: 2px; }
+.badge-icon { flex: none; width: 33px; text-align: center; }
+.badges-none { opacity: 0.6; }
 
 .detail {
   position: absolute;

@@ -112,6 +112,7 @@
 
   const state = {
     agents: new Map(),
+    achievements: [],
     chronicle: [],
     council: [],
     demo: false,
@@ -389,8 +390,16 @@
     on('log', (entry) => {
       addLog(entry);
       soundFor(entry);
+      if (entry && entry.kind === 'badge' && entry.badge && !state.achievements.some((b) => b.key === entry.badge)) {
+        state.achievements.push({ key: entry.badge, icon: entry.badgeIcon || '🏅', at: entry.t });
+        renderBadges();
+      }
     });
-    on('fx', (fx) => scene.addFlight(fx));
+    on('fx', (fx) => {
+      if (!fx) return;
+      if (fx.type === 'eagle') scene.addFlight(fx);
+      else scene.addTraveler(fx);
+    });
     on('usage', (u) => {
       state.usage = u || { real: null, demo: null };
       renderReserves();
@@ -413,6 +422,8 @@
     state.chronicle = (snap.chronicle || []).slice(-MAX_FEED);
     state.council = (snap.council || []).slice(-MAX_FEED);
     state.usage = snap.usage || { real: null, demo: null };
+    state.achievements = Array.isArray(snap.achievements) ? snap.achievements : [];
+    renderBadges();
     setDemo(!!snap.demo);
     renderReserves();
     renderFeeds();
@@ -674,6 +685,7 @@
         state.returned.add(e.agentId);
         if (state.returned.size > 500) state.returned.clear();
         Sound.sfx.play('fanfare');
+        maybeRiders();
       }
       if (sid) state.worked.set(sid, true);
       return;
@@ -702,6 +714,7 @@
         if (sid && state.worked.get(sid)) {
           state.worked.set(sid, false);
           Sound.sfx.play('fanfare');
+          maybeRiders();
         }
         break;
       case 'testFail':
@@ -715,6 +728,19 @@
         break;
     }
   }
+
+  // ------------------------------------------------------------ rare ambient crossings (cosmetic)
+
+  /** Riders of Rohan: ~1 in 5 after real work (turn ended with work, or a subagent back). */
+  function maybeRiders() {
+    if (Math.random() < 0.2) scene.addTraveler({ type: 'riders' });
+  }
+  /** Gollum: night only, ~1 in 15 every 2 to 4 minutes. */
+  function gollumTick() {
+    if (scene.nightEnabled && window.LOTRMap.nightAmount(new Date()) > 0 && Math.random() < 1 / 15) scene.addTraveler({ type: 'gollum' });
+    setTimeout(gollumTick, (120 + Math.random() * 120) * 1000);
+  }
+  setTimeout(gollumTick, (120 + Math.random() * 120) * 1000);
 
   Sound.ambient.setProvider(() => {
     const act = [...state.agents.values()].filter(isActive);
@@ -977,7 +1003,7 @@
 
   // ------------------------------------------------------------ legend
 
-  const LEGEND = ['hobbit', 'dwarf', 'wizard', 'scout', 'painter', 'troll', 'beacon', 'campfire', 'eagle', 'troop', 'rain', 'storm'];
+  const LEGEND = ['hobbit', 'dwarf', 'wizard', 'scout', 'painter', 'troll', 'beacon', 'campfire', 'eagle', 'troop', 'rain', 'storm', 'riders', 'nazgul'];
   const legendCanvases = [];
   const legendList = $('#legendList');
   function renderLegend() {
@@ -995,6 +1021,24 @@
     });
     legendList.replaceChildren(...items);
     drawLegend();
+    renderBadges();
+  }
+  /** Hauts faits: unlocked badges (icon + name), inside the legend panel. */
+  function renderBadges() {
+    const box = $('#legendBadges');
+    if (!box) return;
+    const head = el('div', 'badges-title', t('legend.badges'));
+    const items = state.achievements.map((b) => {
+      const li = el('li');
+      li.append(el('span', 'badge-icon', b.icon || '🏅'), el('span', null, t('badge.' + b.key)));
+      const g = gl('badge.' + b.key);
+      if (g) li.title = g;
+      return li;
+    });
+    const ul = el('ul');
+    if (items.length) ul.replaceChildren(...items);
+    else ul.append(el('li', 'badges-none', t('legend.badges.none')));
+    box.replaceChildren(head, ul);
   }
   function drawLegend() {
     const now = performance.now() / 1000;

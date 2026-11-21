@@ -73,7 +73,7 @@ La carte affiche aussi l'usage de Claude, à partir de deux sources :
 À l'écran : jauges *Lembas* (5 h) et *Greniers* (7 j) avec compte à rebours dans l'en-tête, jetons et coût
 du jour, lanterne (contexte) et badge de modèle près de chaque banderole, détail des jetons dans le panneau,
 ombre du Mordor à partir de 80 % de la limite 5 h et feu de camp à 100 %. La chronique n'annonce que les
-franchissements de seuil (5 h : 50/80/90/100 %, 7 j : 80/90 %, reset, contexte > 85 %). Les seuils annoncés
+franchissements de seuil (5 h : 50/80/90/95/100 %, un Nazgûl traverse la carte à 95 %, 7 j : 80/90 %, reset, contexte > 85 %). Les seuils annoncés
 sont gardés dans `usage-state.json` (à côté de `events.jsonl`). `POST /statusline` reçoit le JSON brut ; une
 status line d'une session encore inconnue est mise de côté jusqu'à son premier hook (pas d'agent fantôme).
 
@@ -165,10 +165,30 @@ menus a un sous-menu *Langue*, et l'app suit la langue de la carte (menus, notif
 | Balise allumée + « ! » | attend ta réponse (permission, question) |
 | Feu de camp + « zzz » | au repos (Stop) |
 | Aigle | message entre agents (SendMessage) |
+| Cavaliers du Rohan | renfort après un tour abouti ou un sous-agent de retour (1 fois sur 5 environ) |
+| Nazgûl | 95 % de la limite 5 h : une ombre ailée part du Mordor vers l'ouest, une fois par fenêtre |
+| Gollum | la nuit seulement, très rarement, près de la Moria (aucune signification) |
 
 Les sous-agents prennent l'apparence de leur type : implementer = nain, researcher = elfe éclaireur,
 architect-reviewer = magicien, designer = elfe artiste. Clique sur un personnage ou un territoire pour
 voir le détail (dossier, dernier prompt, 15 dernières actions, sous-agents).
+
+## Hauts faits
+
+Badges globaux à la carte, débloqués une fois pour toutes, annoncés dans la chronique (🏅) et listés en
+bas du panneau Légende. Gardés dans `achievements.json` (à côté de `events.jsonl`), avec les territoires
+déjà visités et le passage à 80 % : un redémarrage ne les réannonce pas. Les sessions de démo ne comptent pas.
+
+| Haut fait | Condition |
+| --- | --- |
+| Première compagnie | la toute première session vue par la carte |
+| Tous les royaumes | chacun des 10 territoires a hébergé une compagnie au moins une fois |
+| L'orage est passé | la limite 5 h redescend sous 80 % après l'avoir atteint |
+| Jour de grand labeur | 300 PostToolUse dans la même journée (compteur en mémoire, live uniquement) |
+| Premier aigle | le tout premier message entre agents (SendMessage) |
+
+Pour en ajouter un : une entrée dans `DEFS` (`lib/achievements.js`), sa condition, et la clé `badge.<key>`
+dans `public/i18n/{fr,en,it,es,ja}.js`.
 
 ## Fonctionnement
 

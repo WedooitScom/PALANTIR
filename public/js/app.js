@@ -134,7 +134,7 @@
   // sfx: effects (beep + alerts + ambient), on by default; music off by default; volumes 0..1.
   let prefsMigrated = false;
   const prefs = (() => {
-    const d = { mute: false, sfx: true, music: false, night: true, legend: true, side: true, volume: 0.8, musicVolume: 0.8, sfxVolume: 0.8, lang: null };
+    const d = { mute: false, sfx: true, music: false, night: true, loupe: false, legend: true, side: true, volume: 0.8, musicVolume: 0.8, sfxVolume: 0.8, lang: null };
     let saved = {};
     try {
       saved = JSON.parse(localStorage.getItem('lotr-prefs') || '{}') || {};
@@ -1479,6 +1479,17 @@
     applyNight();
   };
   applyNight();
+  function applyLoupe() {
+    scene.loupeEnabled = prefs.loupe;
+    $('#btnLoupe').classList.toggle('on', prefs.loupe);
+    $('#btnLoupe').title = tt(prefs.loupe ? 'btn.loupeOn' : 'btn.loupeOff');
+  }
+  $('#btnLoupe').onclick = () => {
+    prefs.loupe = !prefs.loupe;
+    savePrefs();
+    applyLoupe();
+  };
+  applyLoupe();
 
   function applySide() {
     document.body.classList.toggle('side-collapsed', !prefs.side);
@@ -1585,6 +1596,7 @@
     applySound();
     applyMusic(true);
     applyNight();
+    applyLoupe();
     setConn(connOk);
     const nb = $('#btnNotif');
     if (nb.dataset.state) setNotifButton(nb.dataset.state);

@@ -211,6 +211,9 @@
       this.flights = [];
       this.travelers = []; // rare one-shot crossings (riders, nazgûl, gollum), separate from the eagle
       this.hover = null;
+      this.loupeEnabled = false;
+      this.lastClientX = null;
+      this.lastClientY = null;
       this.selected = null;
       this.nightEnabled = true;
       this.forceNight = /[?&]night=1/.test(location.search);
@@ -254,6 +257,8 @@
       canvas.addEventListener('mousemove', (ev) => this.onMove(ev));
       canvas.addEventListener('mouseleave', () => {
         this.hover = null;
+        this.lastClientX = null;
+        this.lastClientY = null;
         if (this.opts.onHover) this.opts.onHover(null);
       });
       canvas.addEventListener('click', (ev) => {
@@ -1127,6 +1132,47 @@
         placed.push({ x: bx, y: by, w: bw, h: bh });
         this.drawBubble(c, bx, by, bw, bh, cx, Y(it.e.y - 16), it.text, it.urgent, u, pad, t);
       }
+
+      // Loupe: a circular magnified crop of `this.frame`, following the cursor.
+      if (this.loupeEnabled && this.lastClientX != null) {
+        const rect = this.canvas.getBoundingClientRect();
+        const sx = (this.lastClientX - rect.left) * dpr;
+        const sy = (this.lastClientY - rect.top) * dpr;
+        if (sx >= 0 && sx <= this.view.cw && sy >= 0 && sy <= this.view.ch) {
+          const R = 60 * dpr; // lens radius, device px
+          const ZOOM = 3; // extra magnification on top of the current view scale
+          const srcW = Math.min(W, (R * 2) / (s * ZOOM));
+          const srcH = Math.min(H, (R * 2) / (s * ZOOM));
+          const wx = (sx - ox) / s, wy = (sy - oy) / s; // world point under the cursor
+          const srcX = Math.max(0, Math.min(W - srcW, wx - srcW / 2));
+          const srcY = Math.max(0, Math.min(H - srcH, wy - srcH / 2));
+          c.save();
+          c.beginPath();
+          c.arc(sx, sy, R, 0, Math.PI * 2);
+          c.clip();
+          c.imageSmoothingEnabled = false;
+          c.fillStyle = '#1d140c';
+          c.fillRect(sx - R, sy - R, R * 2, R * 2);
+          c.drawImage(this.frame, srcX, srcY, srcW, srcH, sx - R, sy - R, R * 2, R * 2);
+          c.restore();
+          // Brass rim + short handle, so it reads as an actual magnifying glass.
+          c.save();
+          c.strokeStyle = '#d8b878';
+          c.lineWidth = Math.max(2, 3 * dpr);
+          c.beginPath();
+          c.arc(sx, sy, R, 0, Math.PI * 2);
+          c.stroke();
+          c.strokeStyle = '#8c6420';
+          c.lineWidth = Math.max(4, 6 * dpr);
+          c.lineCap = 'round';
+          const hx = sx + R * 0.74, hy = sy + R * 0.74;
+          c.beginPath();
+          c.moveTo(hx, hy);
+          c.lineTo(hx + R * 0.45, hy + R * 0.45);
+          c.stroke();
+          c.restore();
+        }
+      }
     }
 
     drawBanner(c, cx, bottom, text, info, urgent, fontPx, u, t, dpr) {
@@ -1303,6 +1349,8 @@
     onMove(ev) {
       const hit = this.pick(ev.clientX, ev.clientY);
       this.hover = hit;
+      this.lastClientX = ev.clientX;
+      this.lastClientY = ev.clientY;
       this.canvas.style.cursor = hit ? 'pointer' : 'default';
       if (this.opts.onHover) this.opts.onHover(hit, ev.clientX, ev.clientY);
     }

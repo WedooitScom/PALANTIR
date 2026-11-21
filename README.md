@@ -202,6 +202,7 @@ dans `public/i18n/{fr,en,it,es,ja}.js`.
   (les événements de démo ne sont pas persistés).
 - Une session inactive depuis 30 min passe « partie », puis disparaît après 2 h.
 - Le cycle jour/nuit suit l'heure locale (bouton 🌙 pour le couper, `?night=1` pour forcer la nuit).
+- Le bouton 🔍 active une loupe qui suit la souris et agrandit la carte sous le curseur, pour mieux voir les personnages.
 - Bouton 🔊/🔈 : effets sonores (activés par défaut), bip et alertes compris. Bouton 🎵 : musique
   d'ambiance originale (gigue celtique 8-bit), générée en WebAudio, coupée par défaut ; tant qu'un agent
   attend, elle passe en mode « ombre » (tambour grave, bourdon assombri, flûte qui se tait). Clic droit

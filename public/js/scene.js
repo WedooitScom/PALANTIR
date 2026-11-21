@@ -584,7 +584,7 @@
       M.drawClouds(f, w, t, dt);
       this.updateWeather(dt);
       this.drawWeather(f, t);
-      const amt = this.forceNight ? 0.38 : this.nightEnabled ? M.nightAmount(new Date()) : 0;
+      const amt = this.forceNight ? M.NIGHT_MAX : this.nightEnabled ? M.nightAmount(new Date()) : 0;
       M.drawNight(f, w, amt, t, lights);
       this.drawShadow(f, t);
       this.drawLightning(f, t, amt);

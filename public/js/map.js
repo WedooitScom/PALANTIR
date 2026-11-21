@@ -622,18 +622,19 @@
     }
   }
 
+  const NIGHT_MAX = 0.22; // night veil opacity: dark enough to feel like night, light enough to still read the map
+
   function nightAmount(date) {
     const h = date.getHours() + date.getMinutes() / 60;
-    const MAX = 0.38;
     if (h >= 8 && h < 18) return 0;
-    if (h >= 18 && h < 21) return ((h - 18) / 3) * MAX;
-    if (h >= 21 || h < 5) return MAX;
-    return ((8 - h) / 3) * MAX;
+    if (h >= 18 && h < 21) return ((h - 18) / 3) * NIGHT_MAX;
+    if (h >= 21 || h < 5) return NIGHT_MAX;
+    return ((8 - h) / 3) * NIGHT_MAX;
   }
 
   function drawNight(ctx, w, amt, t, extra) {
     if (amt <= 0) return;
-    ctx.fillStyle = `rgba(16,20,58,${amt})`;
+    ctx.fillStyle = `rgba(30,36,78,${amt})`;
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
     const all = extra ? w.lights.concat(extra) : w.lights;
@@ -647,5 +648,5 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  window.LOTRMap = { W, H, TERRITORIES, TERR_BY_KEY, build, drawAmbient, drawFog, drawClouds, drawNight, nightAmount, hash2 };
+  window.LOTRMap = { W, H, TERRITORIES, TERR_BY_KEY, build, drawAmbient, drawFog, drawClouds, drawNight, nightAmount, hash2, NIGHT_MAX };
 })();

@@ -719,7 +719,7 @@
   Sound.ambient.setProvider(() => {
     const act = [...state.agents.values()].filter(isActive);
     return {
-      night: scene.forceNight || (prefs.night && window.LOTRMap.nightAmount(new Date()) > 0.19),
+      night: scene.forceNight || (prefs.night && window.LOTRMap.nightAmount(new Date()) > window.LOTRMap.NIGHT_MAX / 2),
       coding: act.some((a) => a.status === 'coding'),
       calm: !act.some((a) => a.status !== 'idle'),
       rain: scene.weather.rain,
